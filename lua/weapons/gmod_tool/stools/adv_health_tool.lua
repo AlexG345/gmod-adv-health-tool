@@ -31,16 +31,16 @@ end
 
 if SERVER then
 
-	hook.Add( "EntityTakeDamage", "hc_damage_filtering", function( target, dmginfo )
-		if not target.hc_damage_filtered then return end
-		if target.hc_unbreakable or ( target.hc_fire_immune and dmginfo:IsDamageType( DMG_BURN ) ) then
+	hook.Add( "EntityTakeDamage", "aht_damage_filtering", function( target, dmginfo )
+		if not target.aht_damage_filtered then return end
+		if target.aht_unbreakable or ( target.aht_fire_immune and dmginfo:IsDamageType( DMG_BURN ) ) then
 			dmginfo:SetDamage( 0 )
 		end
 	end )
 
 	--[[
-	hook.Add( "PostEntityTakeDamage", "hc_burn_remover", function( target, dmginfo )
-		if target.hc_fire_immune then
+	hook.Add( "PostEntityTakeDamage", "aht_burn_remover", function( target, dmginfo )
+		if target.aht_fire_immune then
 			target:Extinguish()
 		end
 	end )
@@ -48,99 +48,118 @@ if SERVER then
 
 end
 
-local function HC_ApplyHealth( ent, health )
+local function AHT_CopySettings( ent )
+	return {
+		health		= isfunction( ent.Health ) and ent:Health(),
+		max_health	= isfunction( ent.GetMaxHealth ) and ent:GetMaxHealth(),
+		unbreakable = ent:GetVar( "aht_unbreakable" ) or false,
+		fire_immune	= ent:GetVar( "aht_fire_immune" ) or false,
+	}
+end
+
+local function AHT_ApplyHealth( ent, health )
 	if not ( health and isfunction( ent.SetHealth ) ) then return false end
-	if not ent.hc_origHealth then ent.hc_origHealth = ent:Health() end
-	if ent.hc_origHealth == health then ent.hc_origHealth = nil end
+	if not ent.aht_orig_health then ent.aht_orig_health = ent:Health() end
+	if ent.aht_orig_health == health then ent.aht_orig_health = nil end
 	ent:SetHealth( health )
 	return true
 end
 
-local function HC_ApplyMaxHealth( ent, maxHealth )
-	if not ( maxHealth and isfunction( ent.SetMaxHealth ) ) then return false end
-	if not ent.hc_origMaxHealth then ent.hc_origMaxHealth = ent:GetMaxHealth() end
-	if ent.hc_origMaxHealth == maxHealth then ent.hc_origMaxHealth = nil end
+local function AHT_ApplyMaxHealth( ent, maxHealth )
+	if not ( maxHealth and isfunction( ent.SetMaxHealth ) ) then return end
+	if not ent.aht_orig_max_health then ent.aht_orig_max_health = ent:GetMaxHealth() end
+	if ent.aht_orig_max_health == maxHealth then ent.aht_orig_max_health = nil end
 	ent:SetMaxHealth( maxHealth )
 	return true
 end
 
-function HC_ApplySettings( ply, ent, data )
+function AHT_ApplySettings( ply, ent, data, do_undo )
 
-	local health	= data.Health
-	local maxHealth = data.MaxHealth
-	local unbreak	= data.Unbreakable
-	local fireImm	= data.FireImmune
+	local oldData
+	if SERVER and do_undo ~= false then
+		oldData = AHT_CopySettings( ent )
+		do_undo = false
+		for k, v in pairs( data ) do
+			if v ~= oldData[k] then
+				do_undo = true
+			end
+		end
+	end
 
-	HC_ApplyHealth( ent, health )
-	HC_ApplyMaxHealth( ent, maxHealth )
+	AHT_ApplyHealth( ent, data.health )
+	AHT_ApplyMaxHealth( ent, data.max_health )
+	ent.aht_unbreakable = data.unbreakable or nil
+	ent.aht_fire_immune = data.fire_immune or nil
+	ent.aht_damage_filtered = ent.aht_unbreakable or ent.aht_fire_immune or nil
 
-	if unbreak ~= nil then ent.hc_unbreakable = unbreak or nil end
-	if fireImm ~= nil then ent.hc_fire_immune = fireImm or nil end
-
-	ent.hc_damage_filtered = ent.hc_unbreakable or ent.hc_fire_immune or nil
-
-	PrintTable( data )
-
-	if SERVER then duplicator.StoreEntityModifier( ent, "health_changer", data ) end
-
+	if SERVER then
+		duplicator.StoreEntityModifier( ent, "adv_health_tool", data )
+		if do_undo then
+			undo.Create( "Health Settings Change ("..(ent:GetModel() or "?")..")" )
+				undo.AddFunction( function( undo )
+					if not IsValid( ent ) then return false end
+					AHT_ApplySettings( ply, ent, oldData, false )
+				end )
+				undo.SetPlayer( ply )
+			undo.Finish()
+		end
+	end
 end
+
+
 
 if SERVER then
 
-	duplicator.RegisterEntityModifier( "health_changer", HC_ApplySettings )
+	duplicator.RegisterEntityModifier( "adv_health_tool", AHT_ApplySettings )
 
 	function TOOL:Think()
 
-		local ply = self:GetOwner()
-		local ent = ply:GetEyeTrace().Entity
+		if not self:GetClientBool( "tooltip_enabled" ) then return end
+
+		local ent = self:GetOwner():GetEyeTrace().Entity
 		if not IsValid( ent ) then return end 
 
-		local health = isfunction( ent.Health ) and ent:Health()
-		local maxHealth = isfunction( ent.GetMaxHealth ) and ent:GetMaxHealth()
-
-		-- NW2 checks if the value has changed before sending which is great.
-		if health then ent:SetNW2Int( "HC_Health", health ) end
-		if maxHealth then ent:SetNW2Int( "HC_MaxHealth", maxHealth ) end
-		ent:SetNW2Bool( "HC_Unbreakable", ent:GetVar( "hc_unbreakable" ) or false )
-		ent:SetNW2Bool( "HC_FireImmune", ent:GetVar( "hc_fire_immune" ) or false )
+		for k, v in pairs( AHT_CopySettings( ent ) ) do
+			if isnumber( v ) then
+				ent:SetNW2Int( "aht_"..k, v )
+			elseif isbool( v ) then
+				ent:SetNW2Bool( "aht_"..k, v )
+			end
+		end
 
 	end
 
 end
 
 
-function TOOL:LeftClick(trace)
+function TOOL:LeftClick( trace )
 	
 	local ent = trace.Entity
-	
 	if ent:IsWorld() or not ent:IsValid() then return false end
 	
 	local data = {
-		MaxHealth	= self:GetClientNumber( "max_health" ),
-		Unbreakable = self:GetClientBool( "unbreakable" ),
-		FireImmune	= self:GetClientBool( "fire_immune" ),
+		max_health	= self:GetClientNumber( "max_health" ),
+		unbreakable = self:GetClientBool( "unbreakable" ),
+		fire_immune	= self:GetClientBool( "fire_immune" ),
 	}
-	data.Health = self:GetClientBool( "use_max" ) and data.MaxHealth or self:GetClientNumber( "health" )
+	data.health = self:GetClientBool( "use_max" ) and data.max_health or self:GetClientNumber( "health" )
 
-	HC_ApplySettings( self:GetOwner(), ent, data )
+	AHT_ApplySettings( self:GetOwner(), ent, data )
 	return true
 
 end
 
 
-function TOOL:RightClick(trace)
+function TOOL:RightClick( trace )
 	
 	local ent = trace.Entity
-	
 	if ent:IsWorld() or not ent:IsValid() then return false end
 
-	if isfunction( ent.Health ) then RunConsoleCommand( mode.."_health", ent:Health() ) end
-	if isfunction( ent.GetMaxHealth ) then RunConsoleCommand( mode.."_max_health", ent:GetMaxHealth() ) end
-	RunConsoleCommand( mode.."_unbreakable", ent:GetVar( "hc_unbreakable" ) and 1 or 0 )
-	RunConsoleCommand( mode.."_fire_immune", ent:GetVar( "hc_fire_immune" ) and 1 or 0 )
-
+	for k, v in pairs( AHT_CopySettings( ent ) ) do
+		if isbool( v ) then v = v and 1 or 0 end
+		RunConsoleCommand( mode.."_"..k, v )
+	end
 	return true
-
 end
 
 
@@ -150,13 +169,13 @@ function TOOL:Reload( trace )
 
 	if ent:IsWorld() or not ent:IsValid() then return false end
 
-	duplicator.ClearEntityModifier( ent, "health_changer" )
+	duplicator.ClearEntityModifier( ent, "adv_health_tool" )
 
-	HC_ApplySettings( nil, ent, {
-		Health		= ent.hc_origHealth,
-		MaxHealth	= ent.hc_origMaxHealth,
-		Unbreakable = false,
-		FireImmune = false,
+	AHT_ApplySettings( nil, ent, {
+		health		= ent.aht_orig_health,
+		max_health	= ent.aht_orig_max_health,
+		unbreakable = false,
+		fire_immune = false,
 	} )
 	return true
 
@@ -183,13 +202,13 @@ if CLIENT then
 		local pos = pos:ToScreen()
 		local x, y = pos.x, pos.y
 		
-		local health	= ent:GetNW2Int( "HC_Health" )
-		local maxHealth = ent:GetNW2Int( "HC_MaxHealth" )
-		local unbreak	= ent:GetNW2Bool( "HC_Unbreakable" )
-		local fireImm	= ent:GetNW2Bool( "HC_FireImmune" )
-		local prop = maxHealth ~= 0 and math.Clamp( health / maxHealth, 0, 1 ) or 1
+		local health	= ent:GetNW2Int( "aht_health" )
+		local max_health = ent:GetNW2Int( "aht_max_health" )
+		local unbreak	= ent:GetNW2Bool( "aht_unbreakable" )
+		local fireImm	= ent:GetNW2Bool( "aht_fire_immune" )
+		local prop = max_health ~= 0 and math.Clamp( health / max_health, 0, 1 ) or 1
 
-		local text1 = ("Health: %s / %s"):format( health or "N/A", maxHealth or "N/A" )
+		local text1 = ("Health: %s / %s"):format( health or "N/A", max_health or "N/A" )
 		local text2 = (" (%s%%)"):format( math.Round( 100*prop, 1 ) or "N/A" )
 		local text3 = unbreak and fireImm and "Unbreakable, Fire Immune"  or unbreak and "Unbreakable" or fireImm and "Fire Immune" or nil
 
@@ -254,8 +273,10 @@ function TOOL.BuildCPanel( cPanel )
 		end
 
 		local maxHealthSlider = healthForm:NumSlider( "Max Health", mode.."_max_health", 0, maxHealth, 0 )
+			maxHealthSlider:SetToolTip("Sets the entity's maximum health. NPCs can heal up to this amount.")
 
 		local healthSlider = healthForm:NumSlider( "Base Health", mode.."_health", 0, maxHealth, 0 )
+			healthSlider:SetToolTip("Sets the current and duped health of the entity.")
 
 		local FR_button = vgui.Create( "DButton" )
 			FR_button:Dock( TOP )
