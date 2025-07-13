@@ -30,35 +30,6 @@ end
 
 
 if SERVER then
---[[ DEPRECATED
-	-- creates the damage filters to be used for unbreakable and fire immune entities
-
-	local function HC_InitFilter_No()
-		local filter = ents.Create( "filter_base" )
-		filter:SetKeyValue( "TargetName", "hc_filter_no" )
-		filter:SetKeyValue( "negated", "1" ) -- always no
-		filter:Spawn()
-		filter:CallOnRemove( "hc_init_filter_no", function() timer.Simple( 0, HC_InitFilter_No ) end )
-	end
-	
-	-- DOES NOT WORk 100% OF THE TIME
-	local function HC_InitFilter_BurnDmg()
-		-- https://developer.valvesoftware.com/wiki/Filter_damage_type
-		local filter = ents.Create( "filter_damage_type" )
-		filter:SetKeyValue( "TargetName", "hc_filter_burn_dmg" )
-		filter:SetKeyValue( "damagetype", tostring( DMG_BURN + DMG_DIRECT ) ) -- Tested in-game to find the damage type combination which needs to be targeted
-		filter:SetKeyValue( "negated", "1" )
-		filter:Spawn()
-		filter:CallOnRemove( "hc_init_filter_burn_dmg", function() timer.Simple( 0, HC_InitFilter_BurnDmg ) end )
-	end
-
-	local function HC_InitFilters()
-		HC_InitFilter_No()
-		HC_InitFilter_BurnDmg()
-	end
-
-	hook.Add( "InitPostEntity", "hc_init_filters", HC_InitFilters )
-]]
 
 	hook.Add( "EntityTakeDamage", "hc_damage_filtering", function( target, dmginfo )
 		if not target.hc_damage_filtered then return end
