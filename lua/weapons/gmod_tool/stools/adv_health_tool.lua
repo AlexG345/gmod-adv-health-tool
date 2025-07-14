@@ -29,17 +29,6 @@ if CLIENT then
 end
 
 
-if SERVER then
-
-	hook.Add( "EntityTakeDamage", "aht_damage_filtering", function( target, dmginfo )
-		if not target.aht_damage_filtered then return end
-		if target.aht_unbreakable or ( target.aht_fire_immune and dmginfo:IsDamageType( DMG_BURN ) ) then
-			dmginfo:SetDamage( 0 )
-		end
-	end )
-
-end
-
 local function AHT_CopySettings( ent )
 	return {
 		health		= isfunction( ent.Health ) and ent:Health(),
@@ -60,28 +49,38 @@ end
 
 function AHT_ApplySettings( ply, ent, data, do_undo )
 
+	local k1, k2 = "unbreakable", "fire_immune"
+
+	local legacyUnbreak = ent.EntityMods and ent.EntityMods.Unbreakable
+	if legacyUnbreak then
+		if data.getLegacy then 
+			data[k1] = data[k1] or legacyUnbreak and legacyUnbreak.On
+		else
+			if legacyUnbreak then ent.EntityMods.Unbreakable.On = data[k1] end
+		end
+		data.getLegacy = nil
+	end
+
 	local oldData
 	if SERVER and do_undo ~= false then
 		oldData = AHT_CopySettings( ent )
 		do_undo = false
 		for k, v in pairs( data ) do
-			if v ~= oldData[k] then
-				do_undo = true
-			end
+			if v ~= oldData[k] then do_undo = true end
 		end
 	end
 
 	AHT_ApplyNRemember( ent, data.health, ent.SetHealth, ent.Health, "aht_orig_health" )
 	AHT_ApplyNRemember( ent, data.max_health, ent.SetMaxHealth, ent.GetMaxHealth, "aht_orig_max_health" )
-	local k1, k2 = "unbreakable", "fire_immune"
 	ent["aht_"..k1] = data[k1] or nil
 	ent["aht_"..k2] = data[k2] or nil
 	ent.aht_damage_filtered = data[k1] or data[k2] or nil
 
 	if SERVER then
+		data.getLegacy = true -- for (one-way) compability with the other addon
 		duplicator.StoreEntityModifier( ent, "adv_health_tool", data )
 		if do_undo then
-			undo.Create( "Health Settings Change ("..(ent:GetModel() or "?")..")" )
+			undo.Create( "Health Settings Change ("..( ent:GetModel() or "?" )..")" )
 				undo.AddFunction( function( undo )
 					if not IsValid( ent ) then return false end
 					AHT_ApplySettings( ply, ent, oldData, false )
@@ -97,6 +96,13 @@ end
 if SERVER then
 
 	duplicator.RegisterEntityModifier( "adv_health_tool", AHT_ApplySettings )
+
+	hook.Add( "EntityTakeDamage", "aht_damage_filtering", function( target, dmginfo )
+		if not target.aht_damage_filtered then return end
+		if target.aht_unbreakable or ( target.aht_fire_immune and dmginfo:IsDamageType( DMG_BURN ) ) then
+			dmginfo:SetDamage( 0 )
+		end
+	end )
 
 	function TOOL:Think()
 
@@ -182,21 +188,18 @@ if CLIENT then
 		local vecmin, vecmax = ent:WorldSpaceAABB()
 		local pos = ent:WorldSpaceCenter()
 		pos.z = vecmax.z
-		local pos = pos:ToScreen()
+		pos = pos:ToScreen()
 		local x, y = pos.x, pos.y
 		
-		local health	= ent:GetNW2Int( "aht_health" )
+		local health	 = ent:GetNW2Int( "aht_health" )
 		local max_health = ent:GetNW2Int( "aht_max_health" )
-		local unbreak	= ent:GetNW2Bool( "aht_unbreakable" )
-		local fireImm	= ent:GetNW2Bool( "aht_fire_immune" )
-		local prop = health / max_health or 1 -- lua can handle division by 0
+		local unbreak	 = ent:GetNW2Bool( "aht_unbreakable" )
+		local fireImm	 = ent:GetNW2Bool( "aht_fire_immune" )
+		local prop = health / max_health or 1
 
-
-		local text1 = ("Health: %s / %s"):format( health or "N/A", max_health or "N/A" )
-		local text2 = max_health ~= 0 and (" (%s%%)"):format( math.Round( prop*100, 2 ) ) or "" -- better to hide -inf, nan and inf than show it to players i guess
-		-- this is bad
+		local text1 = ( "Health: %s / %s" ):format( health or "N/A", max_health or "N/A" )
+		local text2 = max_health == 0 and "" or ( " (%s%%)" ):format( math.Round( prop*100, 2 ) )
 		local text3 = unbreak and fireImm and "Unbreakable, Fire Immune"  or unbreak and "Unbreakable" or fireImm and "Fire Immune" or ""
-		local font = "GModWorldtip"
 
 		prop = math.Clamp( prop, 0, 3 )
 		local txcol	= HSVToColor( 100*prop, 0.65, 0.9 )
@@ -204,6 +207,7 @@ if CLIENT then
 			bgcol.a = 220
 		local rad   = 8
 
+		local font = "GModWorldtip"
 		surface.SetFont( font )
 		local tw1, th1 = surface.GetTextSize( text1 )
 		local tw2, th2 = surface.GetTextSize( text2 )
@@ -216,7 +220,7 @@ if CLIENT then
 		draw.RoundedBox( rad, x - tw/2 - 10, y - th1/2 - 2, tw + 20, th + 4, bgcol )
 		draw.SimpleText( text1, font, x - tw2/2, y, color_white, 1, 1 )
 		draw.SimpleText( text2, font, x + tw1/2, y, txcol, 1, 1 )
-		if text3 ~= "" then draw.SimpleText( text3, font, x, y+th1, color_gold, 1, 1 ) end
+		if text3 ~= "" then draw.SimpleText( text3, font, x, y + th1, color_gold, 1, 1 ) end
 	end
 
 end
