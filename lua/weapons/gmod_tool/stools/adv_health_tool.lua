@@ -10,6 +10,7 @@ TOOL.ClientConVar[ "unbreakable" ] = "0"
 TOOL.ClientConVar[ "fire_immune" ] = "0"
 TOOL.ClientConVar[ "tooltip_enabled" ] = "1"
 TOOL.Information = {
+	{ name = "info" },
 	{ name = "left" },
 	{ name = "right" },
 	{ name = "reload" },
@@ -22,6 +23,7 @@ if CLIENT then
 	language.Add( t.."listname",	"Advanced Health" )
 	language.Add( t.."name",		"Advanced Health Tool" )
 	language.Add( t.."desc",		"Change the health-related properties of entities." )
+	language.Add( t.."0",			"Press "..input.LookupBinding( "+speed" ).." to target all constrained entities" )
 	language.Add( t.."left",		"Apply settings" )
 	language.Add( t.."right",		"Copy settings" )
 	language.Add( t.."reload",		"Reset entity settings" )
@@ -47,7 +49,7 @@ local function AHT_ApplyNRemember( ent, newval, setter, getter, orig_key )
 	return true
 end
 
-function AHT_ApplySettings( ply, ent, data, do_undo )
+function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 
 	local k1, k2 = "unbreakable", "fire_immune"
 
@@ -80,7 +82,8 @@ function AHT_ApplySettings( ply, ent, data, do_undo )
 		data.getLegacy = true -- for (one-way) compability with the other addon
 		duplicator.StoreEntityModifier( ent, "adv_health_tool", data )
 		if do_undo then
-			undo.Create( "Health Settings Change ("..( ent:GetModel() or "?" )..")" )
+			undo_text = undo_text or "Set health settings"
+			undo.Create( undo_text.." ("..( ent:GetModel() or "?" )..")" )
 				undo.AddFunction( function( undo )
 					if not IsValid( ent ) then return false end
 					AHT_ApplySettings( ply, ent, oldData, false )
@@ -90,7 +93,6 @@ function AHT_ApplySettings( ply, ent, data, do_undo )
 		end
 	end
 end
-
 
 
 if SERVER then
@@ -125,6 +127,7 @@ function TOOL:LeftClick( trace )
 	
 	local ent = trace.Entity
 	if ent:IsWorld() or not ent:IsValid() then return false end
+	local ply = self:GetOwner()
 	
 	local data = {
 		max_health	= self:GetClientNumber( "max_health" ),
@@ -133,7 +136,14 @@ function TOOL:LeftClick( trace )
 	}
 	data.health = self:GetClientBool( "use_max" ) and data.max_health or self:GetClientNumber( "health" )
 
-	AHT_ApplySettings( self:GetOwner(), ent, data )
+	local multi = self:GetOwner():KeyDown( IN_SPEED )
+	local getter = multi and constraint.GetAllConstrainedEntities
+	local targets = getter and getter( ent ) or { [ ent ] = ent }
+	local do_undo = #targets <= 1
+	for target in pairs( targets ) do
+		AHT_ApplySettings( self:GetOwner(), target, data, do_undo )
+	end
+
 	return true
 
 end
@@ -160,12 +170,22 @@ function TOOL:Reload( trace )
 
 	if SERVER then duplicator.ClearEntityModifier( ent, "adv_health_tool" ) end
 
-	AHT_ApplySettings( nil, ent, {
-		health		= ent.aht_orig_health,
-		max_health	= ent.aht_orig_max_health,
+	local multi = self:GetOwner():KeyDown( IN_SPEED )
+	local getter = multi and constraint.GetAllConstrainedEntities
+	local targets = getter and getter( ent ) or { [ ent ] = ent }
+	local do_undo = #targets <= 1
+	
+	local data = {
 		unbreakable = false,
 		fire_immune = false,
-	} )
+	}
+
+	for target in pairs( targets ) do
+		data.health = target.aht_orig_health
+		data.max_health = target.aht_orig_max_health
+		AHT_ApplySettings( self:GetOwner(), target, data, do_undo, "Reset health settings" )
+	end
+
 	return true
 
 end
