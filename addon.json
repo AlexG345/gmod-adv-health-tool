@@ -1,0 +1,13 @@
+{
+	"title"		:	"Health Changer",
+	"type"		:	"tool",
+	"tags"		:	[ "build", "fun" ],
+	"ignore"	:
+	[
+		"*.psd",
+		"*.vcproj",
+		"*.git",
+		"*.svn*",
+		"workshop images"
+	]
+}
