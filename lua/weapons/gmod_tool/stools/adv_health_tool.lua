@@ -7,7 +7,7 @@ TOOL.ClientConVar[ "max_health" ] = "100"
 TOOL.ClientConVar[ "health" ] = "100"
 TOOL.ClientConVar[ "use_max" ] = "0"
 TOOL.ClientConVar[ "unbreakable" ] = "0"
-TOOL.ClientConVar[ "fire_immune" ] = "0"
+TOOL.ClientConVar[ "immune_mask" ] = "0"
 TOOL.ClientConVar[ "tooltip_enabled" ] = "1"
 TOOL.Information = {
 	{ name = "info" },
@@ -28,6 +28,44 @@ if CLIENT then
 	language.Add( t.."right",		"Copy settings" )
 	language.Add( t.."reload",		"Reset entity settings" )
 
+
+	local k1, k2 = "name", "flag"
+	dmgEnums = {
+		--{ [k1] = "DMG_GENERIC", [k2] = DMG_GENERIC }, -- sadly its value is 0
+		{ [k1] = "DMG_CRUSH", [k2] = DMG_CRUSH },
+		{ [k1] = "DMG_BULLET", [k2] = DMG_BULLET },
+		{ [k1] = "DMG_SLASH", [k2] = DMG_SLASH },
+		{ [k1] = "DMG_BURN", [k2] = DMG_BURN },
+		{ [k1] = "DMG_VEHICLE", [k2] = DMG_VEHICLE },
+		{ [k1] = "DMG_FALL", [k2] = DMG_FALL },
+		{ [k1] = "DMG_BLAST", [k2] = DMG_BLAST },
+		{ [k1] = "DMG_CLUB", [k2] = DMG_CLUB },
+		{ [k1] = "DMG_SHOCK", [k2] = DMG_SHOCK },
+		{ [k1] = "DMG_SONIC", [k2] = DMG_SONIC },
+		{ [k1] = "DMG_ENERGYBEAM", [k2] = DMG_ENERGYBEAM },
+		{ [k1] = "DMG_PREVENT_PHYSICS_FORCE", [k2] = DMG_PREVENT_PHYSICS_FORCE },
+		{ [k1] = "DMG_NEVERGIB", [k2] = DMG_NEVERGIB },
+		{ [k1] = "DMG_ALWAYSGIB", [k2] = DMG_ALWAYSGIB },
+		{ [k1] = "DMG_DROWN", [k2] = DMG_DROWN },
+		{ [k1] = "DMG_PARALYZE", [k2] = DMG_PARALYZE },
+		{ [k1] = "DMG_NERVEGAS", [k2] = DMG_NERVEGAS },
+		{ [k1] = "DMG_POISON", [k2] = DMG_POISON },
+		{ [k1] = "DMG_RADIATION", [k2] = DMG_RADIATION },
+		{ [k1] = "DMG_DROWNRECOVER", [k2] = DMG_DROWNRECOVER },
+		{ [k1] = "DMG_ACID", [k2] = DMG_ACID },
+		{ [k1] = "DMG_SLOWBURN", [k2] = DMG_SLOWBURN },
+		{ [k1] = "DMG_REMOVENORAGDOLL", [k2] = DMG_REMOVENORAGDOLL },
+		{ [k1] = "DMG_PHYSGUN", [k2] = DMG_PHYSGUN },
+		{ [k1] = "DMG_PLASMA", [k2] = DMG_PLASMA },
+		{ [k1] = "DMG_AIRBOAT", [k2] = DMG_AIRBOAT },
+		{ [k1] = "DMG_DISSOLVE", [k2] = DMG_DISSOLVE },
+		{ [k1] = "DMG_BLAST_SURFACE", [k2] = DMG_BLAST_SURFACE },
+		{ [k1] = "DMG_DIRECT", [k2] = DMG_DIRECT },
+		{ [k1] = "DMG_BUCKSHOT", [k2] = DMG_BUCKSHOT },
+		{ [k1] = "DMG_SNIPER", [k2] = DMG_SNIPER },
+		{ [k1] = "DMG_MISSILEDEFENSE", [k2] = DMG_MISSILEDEFENSE },
+	}
+
 end
 
 
@@ -36,7 +74,7 @@ local function AHT_CopySettings( ent )
 		health		= isfunction( ent.Health ) and ent:Health(),
 		max_health	= isfunction( ent.GetMaxHealth ) and ent:GetMaxHealth(),
 		unbreakable = ent:GetVar( "aht_unbreakable" ) or false,
-		fire_immune	= ent:GetVar( "aht_fire_immune" ) or false,
+		immune_mask = ent:GetVar( "aht_immune_mask" ) or 0,
 	}
 end
 
@@ -51,7 +89,7 @@ end
 
 function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 
-	local k1, k2 = "unbreakable", "fire_immune"
+	local k1, k2 = "unbreakable", "immune_mask"
 
 	local legacyUnbreak = ent.EntityMods and ent.EntityMods.Unbreakable
 	if legacyUnbreak then
@@ -75,8 +113,8 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 	AHT_ApplyNRemember( ent, data.health, ent.SetHealth, ent.Health, "aht_orig_health" )
 	AHT_ApplyNRemember( ent, data.max_health, ent.SetMaxHealth, ent.GetMaxHealth, "aht_orig_max_health" )
 	ent["aht_"..k1] = data[k1] or nil
-	ent["aht_"..k2] = data[k2] or nil
-	ent.aht_damage_filtered = data[k1] or data[k2] or nil
+	ent["aht_"..k2] = data[k2] ~= 0 and data[k2] or nil
+	ent.aht_damage_filtered = data[k1] or data[k2] ~= 0 or nil
 
 	if SERVER then
 		data.getLegacy = true -- for (one-way) compability with the other addon
@@ -101,7 +139,7 @@ if SERVER then
 
 	hook.Add( "EntityTakeDamage", "aht_damage_filtering", function( target, dmginfo )
 		if not target.aht_damage_filtered then return end
-		if target.aht_unbreakable or ( target.aht_fire_immune and dmginfo:IsDamageType( DMG_BURN ) ) then
+		if target.aht_unbreakable or ( target.aht_immune_mask and dmginfo:IsDamageType( target.aht_immune_mask ) ) then
 			dmginfo:SetDamage( 0 )
 		end
 	end )
@@ -127,12 +165,13 @@ function TOOL:LeftClick( trace )
 	
 	local ent = trace.Entity
 	if ent:IsWorld() or not ent:IsValid() then return false end
+	ent.Dissolve = function() return end
 	local ply = self:GetOwner()
 	
 	local data = {
 		max_health	= self:GetClientNumber( "max_health" ),
+		immune_mask	= self:GetClientNumber( "immune_mask" ),
 		unbreakable = self:GetClientBool( "unbreakable" ),
-		fire_immune	= self:GetClientBool( "fire_immune" ),
 	}
 	data.health = self:GetClientBool( "use_max" ) and data.max_health or self:GetClientNumber( "health" )
 
@@ -177,7 +216,7 @@ function TOOL:Reload( trace )
 	
 	local data = {
 		unbreakable = false,
-		fire_immune = false,
+		immune_mask = 0,
 	}
 
 	for target in pairs( targets ) do
@@ -213,13 +252,15 @@ if CLIENT then
 		
 		local health	 = ent:GetNW2Int( "aht_health" )
 		local max_health = ent:GetNW2Int( "aht_max_health" )
-		local unbreak	 = ent:GetNW2Bool( "aht_unbreakable" )
-		local fireImm	 = ent:GetNW2Bool( "aht_fire_immune" )
+		local unbreakable	 = ent:GetNW2Bool( "aht_unbreakable" )
+		local immune_mask	 = ent:GetNW2Int( "aht_immune_mask" ) or 0
 		local prop = health / max_health or 1
 
 		local text1 = ( "Health: %s / %s" ):format( health or "N/A", max_health or "N/A" )
 		local text2 = max_health == 0 and "" or ( " (%s%%)" ):format( math.Round( prop*100, 2 ) )
-		local text3 = unbreak and fireImm and "Unbreakable, Fire Immune"  or unbreak and "Unbreakable" or fireImm and "Fire Immune" or ""
+		local text3 = unbreakable and "Unbreakable"
+		local text3 = ( text3 and immune_mask ~= 0 ) and text3..", " or ""
+		if immune_mask ~= 0 then text3 = text3.."DMG Mask: "..immune_mask end
 
 		prop = math.Clamp( prop, 0, 3 )
 		local txcol	= HSVToColor( 100*prop, 0.65, 0.9 )
@@ -338,8 +379,80 @@ function TOOL.BuildCPanel( cPanel )
 		local ubCheckBox = filterForm:CheckBox( "Unbreakable", mode.."_unbreakable" )
 			ubCheckBox:SetToolTip( "Make the entity unable to take damage of any kind." )
 
-		local fiCheckBox = filterForm:CheckBox( "Fire Immune", mode.."_fire_immune" )
-			fiCheckBox:SetToolTip( "Make the entity unable to take burn damage." )
+		filterForm:Help("Below you can choose and combine what type of damage to ignore.")
+		filterForm:ControlHelp("You can get a better understanding of damage types by checking the wiki link in the 'Help' section at the bottom.")
+
+
+		local cVarName = mode.."_immune_mask"
+
+		local filterComboBox = filterForm:ComboBox( "Easy Presets", cVarName )
+			filterComboBox:Dock( TOP )
+			filterComboBox:SetSortItems( false )
+			filterComboBox:AddChoice( "None", 0 )
+			filterComboBox:AddChoice( "Fireproof", bit.bor( DMG_BURN, DMG_SLOWBURN ) )
+			filterComboBox:AddChoice( "Bulletproof", bit.bor( DMG_BULLET, DMG_BUCKSHOT, DMG_SNIPER, DMG_AIRBOAT ) )
+			filterComboBox:AddChoice( "Blast-Resistant", bit.bor( DMG_BLAST, DMG_BLAST_SURFACE ) )
+			filterComboBox:AddChoice( "Anti-Combine Ball", DMG_DISSOLVE )
+			filterComboBox:AddChoice( "Everything", -1 )
+
+
+		filterForm:TextEntry( "Damage Mask", cVarName )
+
+		local cVar = GetConVar( cVarName )
+		local checkboxes = {}
+		local syncing = false
+
+		-- Get current ConVar value (default to 0 if invalid)
+		local currentMask = tonumber( cVar:GetString() ) or 0
+		
+		for _, dmgType in ipairs( dmgEnums ) do
+			-- Create checkbox with damage type name
+			local checkbox = vgui.Create( "DCheckBoxLabel", filterForm )
+			checkbox:SetDark( true )
+			checkbox:SetText( dmgType.name )
+			checkbox:SetValue( bit.band( currentMask, dmgType.flag ) ~= 0 )
+			
+			-- Update ConVar on change using bitwise operations
+			function checkbox:OnChange( checked )
+
+				if syncing then return end
+
+				local newMask = tonumber( cVar:GetString() ) or 0 -- do NOT use cVar:GetInt() as it returns a rounded value for large ints! (e.g 33 554 431 -> 33 554 432)
+				
+				if checked then
+					newMask = bit.bor( newMask, dmgType.flag )
+				else
+					newMask = bit.band( newMask, bit.bnot( dmgType.flag ) )
+				end
+				
+				RunConsoleCommand( cVarName, newMask )
+
+			end
+
+			table.insert( checkboxes, { checkbox = checkbox, flag = dmgType.flag } )
+			filterForm:AddItem( checkbox )
+		end
+
+		-- Cvar callback --
+
+		cvars.AddChangeCallback( cVarName, function( name, oldValue, newValue )
+
+			syncing = true
+
+			local mask = tonumber( newValue ) or 0
+			for _, data in ipairs( checkboxes ) do
+				local checked = bit.band( mask, data.flag ) ~= 0
+				if data.checkbox:GetChecked() ~= checked then data.checkbox:SetValue( checked ) end
+			end
+
+			syncing = false
+
+		end, "aht_menu_mask_sync" )
+
+		function filterForm:OnRemove()
+			cvars.RemoveChangeCallback( cVarName, "aht_menu_mask_sync" )
+		end
+
 
 	local helpForm = vgui.Create( "DForm", cPanel )
 		cPanel:AddItem( helpForm )
@@ -354,6 +467,18 @@ function TOOL.BuildCPanel( cPanel )
 		local tooltipCheckBox = helpForm:CheckBox( "Enable Tooltips", mode.."_tooltip_enabled" )
 			tooltipCheckBox:SetToolTip( "Show a health tooltip when looking at something with this tool." )
 
+		local valveButton, fpButton = vgui.Create( "DButton", helpForm ), vgui.Create( "DButton", helpForm )
+			valveButton:SetText( "Damage types (Valve Wiki)" )
+			fpButton:SetText( "Damage types (Facepunch Wiki)" )
+			
+			valveButton:SetImage( "games/16/hl2.png" )
+			fpButton:SetImage( "games/16/garrysmod.png" )
+			
+			function valveButton:DoClick() gui.OpenURL( "https://developer.valvesoftware.com/wiki/Damage_types" ) end
+			function fpButton:DoClick() gui.OpenURL( "https://wiki.facepunch.com/gmod/Enums/DMG" ) end
+
+			helpForm:AddItem( fpButton )
+			helpForm:AddItem( valveButton )
 
 end
 
