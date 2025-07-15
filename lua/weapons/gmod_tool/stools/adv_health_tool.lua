@@ -258,8 +258,8 @@ if CLIENT then
 
 		local text1 = ( "Health: %s / %s" ):format( health or "N/A", max_health or "N/A" )
 		local text2 = max_health == 0 and "" or ( " (%s%%)" ):format( math.Round( prop*100, 2 ) )
-		local text3 = unbreakable and "Unbreakable"
-		local text3 = ( text3 and immune_mask ~= 0 ) and text3..", " or ""
+		local text3 = unbreakable and "Unbreakable" or ""
+		local text3 = ( text3 ~= "" and immune_mask ~= 0 ) and text3..", " or text3
 		if immune_mask ~= 0 then text3 = text3.."DMG Mask: "..immune_mask end
 
 		prop = math.Clamp( prop, 0, 3 )
@@ -379,7 +379,7 @@ function TOOL.BuildCPanel( cPanel )
 		local ubCheckBox = filterForm:CheckBox( "Unbreakable", mode.."_unbreakable" )
 			ubCheckBox:SetToolTip( "Make the entity unable to take damage of any kind." )
 
-		filterForm:Help("Below you can choose and combine what type of damage to ignore.")
+		filterForm:Help("Below you can choose and combine 32 types of damage to ignore.")
 		filterForm:ControlHelp("You can get a better understanding of damage types by checking the wiki link in the 'Help' section at the bottom.")
 
 
