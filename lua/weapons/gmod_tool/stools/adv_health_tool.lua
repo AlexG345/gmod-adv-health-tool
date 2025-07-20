@@ -164,8 +164,7 @@ end
 function TOOL:LeftClick( trace )
 	
 	local ent = trace.Entity
-	if ent:IsWorld() or not ent:IsValid() then return false end
-	ent.Dissolve = function() return end
+	if not ent or not ent:IsValid() or ent:IsWorld() or ent:IsPlayer() then return false end
 	local ply = self:GetOwner()
 	
 	local data = {
