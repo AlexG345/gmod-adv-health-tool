@@ -115,6 +115,11 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 	ent["aht_"..k1] = data[k1] or nil
 	ent["aht_"..k2] = data[k2] ~= 0 and data[k2] or nil
 	ent.aht_damage_filtered = data[k1] or data[k2] ~= 0 or nil
+	if data.health > 0 and data.max_health > 0 then 
+		ent:SetSaveValue("m_takedamage", 1) 
+	else
+		ent:SetSaveValue("m_takedamage", 0) 
+	end
 
 	if SERVER then
 		data.getLegacy = true -- for (one-way) compability with the other addon
@@ -137,10 +142,17 @@ if SERVER then
 
 	duplicator.RegisterEntityModifier( "adv_health_tool", AHT_ApplySettings )
 
+	local vector_zero = Vector(0,0,0)
+	
+	local nodmgforce = CreateConVar("sv_adv_health_tool_nodmgforce", 1, FCVAR_ARCHIVE + FCVAR_REPLICATED, "Prevent damage force", 0, 1)
 	hook.Add( "EntityTakeDamage", "aht_damage_filtering", function( target, dmginfo )
 		if not target.aht_damage_filtered then return end
 		if target.aht_unbreakable or ( target.aht_immune_mask and dmginfo:IsDamageType( target.aht_immune_mask ) ) then
 			dmginfo:SetDamage( 0 )
+			if nodmgforce:GetBool() then
+				dmginfo:SetDamageType(DMG_PREVENT_PHYSICS_FORCE)
+				dmginfo:SetDamageForce(vector_zero)
+			end
 		end
 	end )
 
@@ -157,7 +169,9 @@ if SERVER then
 		end
 
 	end
-
+	
+else
+	CreateConVar("sv_adv_health_tool_nodmgforce", 1, FCVAR_REPLICATED, "Prevent damage force", 0, 1)
 end
 
 
@@ -307,7 +321,7 @@ function TOOL.BuildCPanel( cPanel )
 
 	cPanel:ToolPresets( mode, cvarlist )
 
-	local limitHealth	= 2147483520
+	local limitHealth	= 2^31 - 1 --2147483520
 	local lowHealth		= 1
 
 	local healthForm = vgui.Create( "DForm", cPanel )
