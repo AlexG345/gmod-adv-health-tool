@@ -116,9 +116,9 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 	ent["aht_"..k2] = data[k2] ~= 0 and data[k2] or nil
 	ent.aht_damage_filtered = data[k1] or data[k2] ~= 0 or nil
 	if data.health > 0 and data.max_health > 0 then 
-		ent:SetSaveValue("m_takedamage", 1) 
+		ent:SetSaveValue("m_takedamage", 2) -- DAMAGE_YES
 	else
-		ent:SetSaveValue("m_takedamage", 0) 
+		ent:SetSaveValue("m_takedamage", 0) -- DAMAGE_NO
 	end
 
 	if SERVER then
