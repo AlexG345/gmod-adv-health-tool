@@ -23,7 +23,7 @@ if CLIENT then
 	language.Add( t.."listname",	"Advanced Health" )
 	language.Add( t.."name",		"Advanced Health Tool" )
 	language.Add( t.."desc",		"Change the health-related properties of entities." )
-	language.Add( t.."0",			"Press "..input.LookupBinding( "+speed" ).." to target all constrained entities" )
+	language.Add( t.."0",			"Press "..(input.LookupBinding( "+speed" ) or "sprint key").." to target all constrained entities" )
 	language.Add( t.."left",		"Apply settings" )
 	language.Add( t.."right",		"Copy settings" )
 	language.Add( t.."reload",		"Reset entity settings" )
