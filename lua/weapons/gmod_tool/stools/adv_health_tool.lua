@@ -115,9 +115,9 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 	ent["aht_"..k1] = data[k1] or nil
 	ent["aht_"..k2] = data[k2] ~= 0 and data[k2] or nil
 	ent.aht_damage_filtered = data[k1] or data[k2] ~= 0 or nil
-	if data.health > 0 and data.max_health > 0 then 
+	if (data.health > 0 and data.max_health > 0) or data[k1] then 
 		ent:SetSaveValue("m_takedamage", 2) -- DAMAGE_YES
-	elseif data.health == 0 and data.max_health == 0 then
+	elseif (data.health == 0 and data.max_health == 0) then
 		ent:SetSaveValue("m_takedamage", 0) -- DAMAGE_NO
 	end
 
@@ -321,7 +321,7 @@ function TOOL.BuildCPanel( cPanel )
 
 	cPanel:ToolPresets( mode, cvarlist )
 
-	local limitHealth	= 2^31 - 1 --2147483520
+	local limitHealth	= 2147483520
 	local lowHealth		= 1
 
 	local healthForm = vgui.Create( "DForm", cPanel )
@@ -494,4 +494,3 @@ function TOOL.BuildCPanel( cPanel )
 			helpForm:AddItem( valveButton )
 
 end
-
