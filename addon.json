@@ -8,6 +8,8 @@
 		"*.vcproj",
 		"*.git",
 		"*.svn*",
-		"workshop images"
+		"workshop images*",
+		"LICENSE",
+		"README.md"
 	]
 }
