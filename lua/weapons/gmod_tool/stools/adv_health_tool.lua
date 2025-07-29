@@ -16,8 +16,12 @@ TOOL.Information = {
 	{ name = "reload" },
 }
 
+if SERVER then 
+	local flags = { FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED }
+	CreateConVar( "sv_adv_health_tool_nodmgforce", 1, flags, "Nullified damage will also lose its force.", 0, 1 )
+	flags = nil
 
-if CLIENT then
+else
 
 	local t = "tool."..mode.."."
 	language.Add( t.."listname",	"Advanced Health" )
@@ -31,7 +35,7 @@ if CLIENT then
 
 	local k1, k2 = "name", "flag"
 	dmgEnums = {
-		--{ [k1] = "DMG_GENERIC", [k2] = DMG_GENERIC }, -- sadly its value is 0
+		--{ [k1] = "DMG_GENERIC", [k2] = DMG_GENERIC }, -- useless (value is 0)
 		{ [k1] = "DMG_CRUSH", [k2] = DMG_CRUSH },
 		{ [k1] = "DMG_BULLET", [k2] = DMG_BULLET },
 		{ [k1] = "DMG_SLASH", [k2] = DMG_SLASH },
@@ -89,7 +93,8 @@ end
 
 function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 
-	local k1, k2 = "unbreakable", "immune_mask"
+	local k1, k2, k3 = "unbreakable", "immune_mask", "m_takedamage"
+	local nodmgforce = GetConVar( "sv_adv_health_tool_nodmgforce" )
 
 	local legacyUnbreak = ent.EntityMods and ent.EntityMods.Unbreakable
 	if legacyUnbreak then
@@ -115,11 +120,9 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 	ent["aht_"..k1] = data[k1] or nil
 	ent["aht_"..k2] = data[k2] ~= 0 and data[k2] or nil
 	ent.aht_damage_filtered = data[k1] or data[k2] ~= 0 or nil
-	if (data.health > 0 and data.max_health > 0) or data[k1] then 
-		ent:SetSaveValue("m_takedamage", 2) -- DAMAGE_YES
-	elseif (data.health == 0 and data.max_health == 0) then
-		ent:SetSaveValue("m_takedamage", 0) -- DAMAGE_NO
-	end
+	-- m_takedamage info here: https://developer.valvesoftware.com/wiki/CBaseEntity
+	local m_takedamage = data[k1] and ( nodmgforce:GetBool() and 0 or 1 ) or ent["aht_orig_"..k3]
+	AHT_ApplyNRemember( ent, m_takedamage, function( ent, v ) ent:SetSaveValue( k3, v ) end, function( ent ) return ent:GetInternalVariable( k3 ) end, "aht_orig_"..k3 )
 
 	if SERVER then
 		data.getLegacy = true -- for (one-way) compability with the other addon
@@ -142,16 +145,14 @@ if SERVER then
 
 	duplicator.RegisterEntityModifier( "adv_health_tool", AHT_ApplySettings )
 
-	local vector_zero = Vector(0,0,0)
-	
-	local nodmgforce = CreateConVar("sv_adv_health_tool_nodmgforce", 1, FCVAR_ARCHIVE + FCVAR_REPLICATED, "Prevent damage force", 0, 1)
+	local nodmgforce = GetConVar( "sv_adv_health_tool_nodmgforce" )
 	hook.Add( "EntityTakeDamage", "aht_damage_filtering", function( target, dmginfo )
 		if not target.aht_damage_filtered then return end
-		if target.aht_unbreakable or ( target.aht_immune_mask and dmginfo:IsDamageType( target.aht_immune_mask ) ) then
+		if ( target.aht_immune_mask and dmginfo:IsDamageType( target.aht_immune_mask ) ) then
 			dmginfo:SetDamage( 0 )
 			if nodmgforce:GetBool() then
-				dmginfo:SetDamageType(DMG_PREVENT_PHYSICS_FORCE)
-				dmginfo:SetDamageForce(vector_zero)
+				dmginfo:SetDamageType( DMG_PREVENT_PHYSICS_FORCE )
+				dmginfo:SetDamageForce( vector_origin )
 			end
 		end
 	end )
@@ -169,9 +170,6 @@ if SERVER then
 		end
 
 	end
-	
-else
-	CreateConVar("sv_adv_health_tool_nodmgforce", 1, FCVAR_REPLICATED, "Prevent damage force", 0, 1)
 end
 
 
