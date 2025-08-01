@@ -21,16 +21,14 @@ if SERVER then
 	CreateConVar( "sv_adv_health_tool_nodmgforce", 1, flags, "Nullified damage will also lose its force.", 0, 1 )
 	flags = nil
 else
-
 	local t = "tool." .. mode .. "."
 	language.Add( t .. "listname",	"Advanced Health" )
 	language.Add( t .. "name",		"Advanced Health Tool" )
 	language.Add( t .. "desc",		"Change the health-related properties of entities." )
-	language.Add( t .. "0",			"Press " .. (input.LookupBinding( "+speed" ) or "sprint key") .. " to target all constrained entities" )
+	language.Add( t .. "0",			"Press " .. (input.LookupBinding( "+speed" ) or "sprint key" ) .. " to target all constrained entities" )
 	language.Add( t .. "left",		"Apply settings" )
 	language.Add( t .. "right",		"Copy settings" )
 	language.Add( t .. "reload",		"Reset entity settings" )
-
 
 	local k1, k2 = "name", "flag"
 	dmgEnums = {
@@ -68,6 +66,7 @@ else
 		{ [k1] = "DMG_SNIPER", [k2] = DMG_SNIPER },
 		{ [k1] = "DMG_MISSILEDEFENSE", [k2] = DMG_MISSILEDEFENSE },
 	}
+	k1, k2 = nil, nil
 
 end
 
@@ -119,7 +118,7 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 	ent["aht_" .. k1] = data[k1] or nil
 	ent["aht_" .. k2] = data[k2] ~= 0 and data[k2] or nil
 	ent.aht_damage_filtered = data[k1] or data[k2] ~= 0 or nil
-	-- m_takedamage info here: https: /  / developer.valvesoftware.com / wiki / CBaseEntity
+	-- m_takedamage info here: https://developer.valvesoftware.com/wiki/CBaseEntity
 	local m_takedamage = data[k1] and ( nodmgforce:GetBool() and 0 or 1 ) or ent["aht_orig_" .. k3]
 	AHT_ApplyNRemember( ent, m_takedamage, function( e, v ) e:SetSaveValue( k3, v ) end, function( e ) return e:GetInternalVariable( k3 ) end, "aht_orig_" .. k3 )
 
@@ -128,7 +127,7 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 		duplicator.StoreEntityModifier( ent, "adv_health_tool", data )
 		if do_undo then
 			undo_text = undo_text or "Set health settings"
-			undo.Create( undo_text .. " (" .. ( ent:GetModel() or "?" ) .. ")" )
+			undo.Create( undo_text .. " ( " .. ( ent:GetModel() or "?" ) .. " )" )
 				undo.AddFunction( function()
 					if not IsValid( ent ) then return false end
 					AHT_ApplySettings( ply, ent, oldData, false )
@@ -246,7 +245,7 @@ if CLIENT then
 
 	function TOOL:DrawHUD()
 
-		if not self:GetClientBool("tooltip_enabled") then return end
+		if not self:GetClientBool( "tooltip_enabled" ) then return end
 
 		local ply = self:GetOwner()
 
@@ -264,7 +263,7 @@ if CLIENT then
 		local max_health = ent:GetNW2Int( "aht_max_health" )
 		local unbreakable	 = ent:GetNW2Bool( "aht_unbreakable" )
 		local immune_mask	 = ent:GetNW2Int( "aht_immune_mask" ) or 0
-		local prop = health / max_health or 1
+		local prop = health/max_health or 1
 
 		local text1 = ( "Health: %s / %s" ):format( health or "N / A", max_health or "N / A" )
 		local text2 = max_health == 0 and "" or ( " (%s%%)" ):format( math.Round( prop * 100, 2 ) )
@@ -303,6 +302,9 @@ local cvarlist = TOOL:BuildConVarList()
 function TOOL.BuildCPanel( cPanel )
 
 	local color_gray	= Color( 240, 240, 240 )
+	local col1	= HexToColor( "#329a55" )
+	local col2	= HexToColor( "#3B5670" )
+	local col3	= HexToColor( "#4A90E2" )
 	local color_red		= Color( 220, 40, 20 )
 	local color_orange	= Color( 220, 120, 20 )
 	local color_green	= Color( 35, 155, 100 )
@@ -314,6 +316,17 @@ function TOOL.BuildCPanel( cPanel )
 		draw.RoundedBoxEx( 8, 0, topHeight, w, h - topHeight + 5, bgcol, false, false, true, true )
 	end
 
+	local function customDForm( label, expanded, hcol, bgcol )
+		local dForm = vgui.Create( "DForm", cPanel )
+			cPanel:AddItem( dForm )
+			dForm:SetLabel( label or "" )
+			dForm:SetPaintBackground( false )
+			dForm:DockPadding( 0, 0, 0, 5 )
+			dForm:SetExpanded( expanded )
+			function dForm:Paint( w, h ) paint( self, w, h, hcol, bgcol ) end
+		return dForm
+	end
+
 	cPanel:Help( "#tool." .. mode .. ".desc" )
 
 	cPanel:ToolPresets( mode, cvarlist )
@@ -321,39 +334,33 @@ function TOOL.BuildCPanel( cPanel )
 	local limitHealth	= 2147483520
 	local lowHealth		= 1
 
-	local healthForm = vgui.Create( "DForm", cPanel )
-		cPanel:AddItem( healthForm )
-		healthForm:SetExpanded( true )
-		healthForm:SetLabel( "Health and Max Health" )
-		healthForm:SetPaintBackground( false )
-		healthForm:DockPadding( 0, 0, 0, 5 )
-		function healthForm:Paint( w, h )
-			paint( self, w, h, color_red, color_gray )
-		end
+	local healthForm = customDForm( "Health and Unbreakable", true, col1, color_gray )
+
+		healthForm:Help( "Setting Base Health higher than Max Health might create weird behavior for some NPCs." )
 
 		local maxHealthSlider = healthForm:NumSlider( "Max Health", mode .. "_max_health", 0, 5000, 0 )
-			maxHealthSlider:SetTooltip("Sets the entity's maximum health. NPCs can heal up to this amount.")
-			healthForm:ControlHelp( "I recommend using a value greather than that of Base Health to prevent weird behavior for NPCs." )
+			healthForm:ControlHelp( "Sets the entity's maximum health. NPCs can heal up to this amount." )
 
 		local healthSlider = healthForm:NumSlider( "Base Health", mode .. "_health", 0, maxHealthSlider:GetMax(), 0 )
-			healthSlider:SetTooltip("Sets the current and duped health of the entity.")
+			healthForm:ControlHelp( "The actual health value. Duped entities will spawn with this." )
 
-		healthForm:ControlHelp( ("You can set these higher than %s if you want."):format( maxHealthSlider:GetMax() ) )
+		--healthForm:ControlHelp( ( "You can set these higher than %s if you want." ):format( maxHealthSlider:GetMax() ) )
 
+		
 		local FR_button = vgui.Create( "DButton" )
 			FR_button:Dock( TOP )
 			FR_button:SetText( "Make fragile" )
-			FR_button:SetImage( "icon32 / hand_property.png" )
+			FR_button:SetImage( "icon32/hand_property.png" )
 			function FR_button:DoClick()
 				maxHealthSlider.Scratch:SetValue( lowHealth )
 				healthSlider.Scratch:SetValue( lowHealth )
 			end
-			FR_button:SetTooltip( ("Set Base Health and Max Health to %s."):format( lowHealth ) )
+			FR_button:SetTooltip( ( "Set Base Health and Max Health to %s." ):format( lowHealth ) )
 
 		local NU_button = vgui.Create( "DButton" )
 			NU_button:Dock( TOP )
 			NU_button:SetText( "Make near-unbreakable" )
-			NU_button:SetImage( "icon32 / tool.png" )
+			NU_button:SetImage( "icon32/tool.png" )
 			function NU_button:DoClick()
 				maxHealthSlider.Scratch:SetValue( limitHealth )
 				healthSlider.Scratch:SetValue( limitHealth )
@@ -362,13 +369,18 @@ function TOOL.BuildCPanel( cPanel )
 			NU_button:SetTooltip( ( "Set Base Health and Max Health to %s." ):format( limitHealth ) )
 
 		healthForm:AddItem( FR_button, NU_button )
+		
 
-		local STMH_checkBox = healthForm:CheckBox( "Heal", mode .. "_use_max" )
+		local STMH_checkBox = healthForm:CheckBox( "Heal entity", mode .. "_use_max" )
 			STMH_checkBox:SetTooltip( "Set Base Health to the same value as Max Health" )
 			function STMH_checkBox:OnChange( checked )
 				healthSlider:SetEnabled( not checked )
 				if checked then healthSlider.Scratch:SetValue( maxHealthSlider.Scratch:GetFloatValue() ) end
 			end
+
+		local ubCheckBox = healthForm:CheckBox( "Unbreakable", mode .. "_unbreakable" )
+			ubCheckBox:SetTooltip( "Make the entity immune to all damage." )
+
 
 		function maxHealthSlider:OnValueChanged( value )
 			if STMH_checkBox:GetChecked() then
@@ -376,21 +388,10 @@ function TOOL.BuildCPanel( cPanel )
 			end
 		end
 
-	local filterForm = vgui.Create( "DForm", cPanel )
-		cPanel:AddItem( filterForm )
-		filterForm:SetExpanded( true )
-		filterForm:SetLabel( "Damage filtering" )
-		filterForm:SetPaintBackground( false )
-		filterForm:DockPadding( 0, 0, 0, 5 )
-		function filterForm:Paint( w, h )
-			paint( self, w, h, color_orange, color_gray )
-		end
+	local filterForm = customDForm( "Damage filtering", false, col2, color_gray )
 
-		local ubCheckBox = filterForm:CheckBox( "Unbreakable", mode .. "_unbreakable" )
-			ubCheckBox:SetTooltip( "Make the entity unable to take damage of any kind." )
-
-		filterForm:Help("Below you can choose and combine 32 types of damage to ignore.")
-		filterForm:ControlHelp("You can get a better understanding of damage types by checking the wiki link in the 'Help' section at the bottom.")
+		filterForm:Help( "Below you can choose and combine up to 32 types of damage for the entity to ignore." )
+		filterForm:ControlHelp( "You can get a better understanding of damage types by checking the wiki link in the 'Help' section at the bottom." )
 
 
 		local cVarName = mode .. "_immune_mask"
@@ -464,15 +465,7 @@ function TOOL.BuildCPanel( cPanel )
 		end
 
 
-	local helpForm = vgui.Create( "DForm", cPanel )
-		cPanel:AddItem( helpForm )
-		helpForm:SetExpanded( true )
-		helpForm:SetLabel( "Help" )
-		helpForm:SetPaintBackground( false )
-		helpForm:DockPadding( 0, 0, 0, 5 )
-		function helpForm:Paint( w, h )
-			paint( self, w, h, color_green, color_gray )
-		end
+	local helpForm = customDForm( "Help", true, col3, color_gray )
 
 		local tooltipCheckBox = helpForm:CheckBox( "Enable Tooltips", mode .. "_tooltip_enabled" )
 			tooltipCheckBox:SetTooltip( "Show a health tooltip when looking at something with this tool." )
@@ -481,11 +474,11 @@ function TOOL.BuildCPanel( cPanel )
 			valveButton:SetText( "Damage types (Valve Wiki)" )
 			fpButton:SetText( "Damage types (Facepunch Wiki)" )
 
-			valveButton:SetImage( "games / 16 / hl2.png" )
-			fpButton:SetImage( "games / 16 / garrysmod.png" )
+			valveButton:SetImage( "games/16/hl2.png" )
+			fpButton:SetImage( "games/16/garrysmod.png" )
 
-			function valveButton:DoClick() gui.OpenURL( "https: /  / developer.valvesoftware.com / wiki / Damage_types" ) end
-			function fpButton:DoClick() gui.OpenURL( "https: /  / wiki.facepunch.com / gmod / Enums / DMG" ) end
+			function valveButton:DoClick() gui.OpenURL( "https://developer.valvesoftware.com/wiki/Damage_types" ) end
+			function fpButton:DoClick() gui.OpenURL( "https://wiki.facepunch.com/gmod/Enums/DMG" ) end
 
 			helpForm:AddItem( fpButton )
 			helpForm:AddItem( valveButton )
