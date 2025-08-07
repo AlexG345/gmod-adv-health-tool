@@ -24,7 +24,7 @@ if CLIENT then
 	language.Add( t .. "0",			"Press " .. (input.LookupBinding( "+speed" ) or "sprint key" ) .. " to target all constrained entities (can't undo!)" )
 	language.Add( t .. "left",		"Apply settings" )
 	language.Add( t .. "right",		"Copy settings" )
-	language.Add( t .. "reload",		"Reset entity settings" )
+	language.Add( t .. "reload",		"Reset settings" )
 
 	local k1, k2 = "name", "flag"
 	dmgEnums = {
