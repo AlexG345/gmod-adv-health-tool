@@ -1,8 +1,6 @@
 CreateConVar( "sv_adv_health_tool_nodmgforce", 1, bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED ), "Nullified damage will also lose its force.", 0, 1 )
 
 
-duplicator.RegisterEntityModifier( "adv_health_tool", AHT_ApplySettings )
-
 util.AddNetworkString( "adv_health_tool_net" )
 
 
@@ -83,6 +81,8 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 
 end
 
+
+duplicator.RegisterEntityModifier( "adv_health_tool", AHT_ApplySettings )
 
 function AHT_CopySettings( ent )
 	return {
