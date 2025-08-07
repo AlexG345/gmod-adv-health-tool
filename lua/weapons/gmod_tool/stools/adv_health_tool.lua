@@ -1,4 +1,4 @@
-local mode = TOOL.Mode -- Class name of the tool. (name of the .lua file) 
+local mode = TOOL.Mode -- Class name of the tool. (name of the .lua file)
 
 TOOL.Category		= "Construction"
 TOOL.Name			= "#Tool." .. mode .. ".listname"
@@ -16,16 +16,12 @@ TOOL.Information = {
 	{ name = "reload" },
 }
 
-if SERVER then
-	local flags = bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED )
-	CreateConVar( "sv_adv_health_tool_nodmgforce", 1, flags, "Nullified damage will also lose its force.", 0, 1 )
-	flags = nil
-else
+if CLIENT then
 	local t = "tool." .. mode .. "."
 	language.Add( t .. "listname",	"Advanced Health" )
 	language.Add( t .. "name",		"Advanced Health Tool" )
 	language.Add( t .. "desc",		"Change the health-related properties of entities." )
-	language.Add( t .. "0",			"Press " .. (input.LookupBinding( "+speed" ) or "sprint key" ) .. " to target all constrained entities" )
+	language.Add( t .. "0",			"Press " .. (input.LookupBinding( "+speed" ) or "sprint key" ) .. " to target all constrained entities (can't undo!)" )
 	language.Add( t .. "left",		"Apply settings" )
 	language.Add( t .. "right",		"Copy settings" )
 	language.Add( t .. "reload",		"Reset entity settings" )
@@ -68,106 +64,15 @@ else
 	}
 	k1, k2 = nil, nil
 
-end
+	net.Receive( "adv_health_tool_net", function( len, ply )
 
-
-local function AHT_CopySettings( ent )
-	return {
-		health		= isfunction( ent.Health ) and ent:Health(),
-		max_health	= isfunction( ent.GetMaxHealth ) and ent:GetMaxHealth(),
-		unbreakable = ent:GetVar( "aht_unbreakable" ) or false,
-		immune_mask = ent:GetVar( "aht_immune_mask" ) or 0,
-	}
-end
-
-
-local function AHT_ApplyNRemember( ent, newval, setter, getter, orig_key )
-	if not ( newval and isfunction( setter ) ) then return false end
-	local o = ent[ orig_key ] or getter( ent )
-	ent[ orig_key ] = o ~= newval and o or nil
-	setter( ent, newval )
-	return true
-end
-
-function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
-
-	local k1, k2, k3 = "unbreakable", "immune_mask", "m_takedamage"
-	local nodmgforce = GetConVar( "sv_adv_health_tool_nodmgforce" )
-
-	local legacyUnbreak = ent.EntityMods and ent.EntityMods.Unbreakable
-	if legacyUnbreak then
-		if data.getLegacy then
-			data[k1] = data[k1] or legacyUnbreak and legacyUnbreak.On
-		else
-			if legacyUnbreak then ent.EntityMods.Unbreakable.On = data[k1] end
+		for k, v in pairs( net.ReadTable() ) do
+			if isbool( v ) then v = v and 1 or 0 end
+			RunConsoleCommand( mode .. "_" .. k, v )
 		end
-		data.getLegacy = nil
-	end
 
-	local oldData
-	if SERVER and do_undo ~= false then
-		oldData = AHT_CopySettings( ent )
-		do_undo = false
-		for k, v in pairs( data ) do
-			if v ~= oldData[k] then do_undo = true end
-		end
-	end
-
-	AHT_ApplyNRemember( ent, data.health, ent.SetHealth, ent.Health, "aht_orig_health" )
-	AHT_ApplyNRemember( ent, data.max_health, ent.SetMaxHealth, ent.GetMaxHealth, "aht_orig_max_health" )
-	ent["aht_" .. k1] = data[k1] or nil
-	ent["aht_" .. k2] = data[k2] ~= 0 and data[k2] or nil
-	ent.aht_damage_filtered = data[k1] or data[k2] ~= 0 or nil
-	-- m_takedamage info here: https://developer.valvesoftware.com/wiki/CBaseEntity
-	local m_takedamage = data[k1] and ( nodmgforce:GetBool() and 0 or 1 ) or ent["aht_orig_" .. k3]
-	AHT_ApplyNRemember( ent, m_takedamage, function( e, v ) e:SetSaveValue( k3, v ) end, function( e ) return e:GetInternalVariable( k3 ) end, "aht_orig_" .. k3 )
-
-	if SERVER then
-		data.getLegacy = true -- for (one-way) compability with the other addon
-		duplicator.StoreEntityModifier( ent, "adv_health_tool", data )
-		if do_undo then
-			undo_text = undo_text or "Set health settings"
-			undo.Create( undo_text .. " ( " .. ( ent:GetModel() or "?" ) .. " )" )
-				undo.AddFunction( function()
-					if not IsValid( ent ) then return false end
-					AHT_ApplySettings( ply, ent, oldData, false )
-				end )
-				undo.SetPlayer( ply )
-			undo.Finish()
-		end
-	end
-end
-
-
-if SERVER then
-
-	duplicator.RegisterEntityModifier( "adv_health_tool", AHT_ApplySettings )
-
-	local nodmgforce = GetConVar( "sv_adv_health_tool_nodmgforce" )
-	hook.Add( "EntityTakeDamage", "aht_damage_filtering", function( target, dmginfo )
-		if not target.aht_damage_filtered then return end
-		if ( target.aht_immune_mask and dmginfo:IsDamageType( target.aht_immune_mask ) ) then
-			dmginfo:SetDamage( 0 )
-			if nodmgforce:GetBool() then
-				dmginfo:SetDamageType( DMG_PREVENT_PHYSICS_FORCE )
-				dmginfo:SetDamageForce( vector_origin )
-			end
-		end
 	end )
 
-	function TOOL:Think()
-
-		if not self:GetClientBool( "tooltip_enabled" ) then return end
-
-		local ent = self:GetOwner():GetEyeTrace().Entity
-		if not IsValid( ent ) then return end
-
-		for k, v in pairs( AHT_CopySettings( ent ) ) do
-			local funcKey = isbool( v ) and "SetNW2Bool" or "SetNW2Int"
-			ent[ funcKey ]( ent, "aht_" .. k, v )
-		end
-
-	end
 end
 
 
@@ -175,6 +80,9 @@ function TOOL:LeftClick( trace )
 
 	local ent = trace.Entity
 	if not ent or not ent:IsValid() or ent:IsWorld() or ent:IsPlayer() then return false end
+
+	if CLIENT then return true end
+
 	local ply = self:GetOwner()
 
 	local data = {
@@ -187,7 +95,7 @@ function TOOL:LeftClick( trace )
 	local multi = ply:KeyDown( IN_SPEED )
 	local getter = multi and constraint.GetAllConstrainedEntities
 	local targets = getter and getter( ent ) or { [ ent ] = ent }
-	local do_undo = #targets <= 1
+	local do_undo = table.Count( targets ) <= 1
 	for target in pairs( targets ) do
 		AHT_ApplySettings( ply, target, data, do_undo )
 	end
@@ -202,11 +110,20 @@ function TOOL:RightClick( trace )
 	local ent = trace.Entity
 	if ent:IsWorld() or not ent:IsValid() then return false end
 
-	for k, v in pairs( AHT_CopySettings( ent ) ) do
-		if isbool( v ) then v = v and 1 or 0 end
-		RunConsoleCommand( mode .. "_" .. k, v )
-	end
+	if CLIENT then return true end
+
+	local ply = self:GetOwner()
+	if not IsValid( ply ) then return false end
+
+	local settings = AHT_CopySettings( ent )
+	if not ( istable( settings ) and next( settings ) ) then return false end
+
+	net.Start( "adv_health_tool_net" )
+		net.WriteTable( AHT_CopySettings( ent ) )
+	net.Send( self:GetOwner() )
+
 	return true
+
 end
 
 
@@ -216,12 +133,14 @@ function TOOL:Reload( trace )
 
 	if ent:IsWorld() or not ent:IsValid() then return false end
 
-	if SERVER then duplicator.ClearEntityModifier( ent, "adv_health_tool" ) end
+	if CLIENT then return true end
+
+	duplicator.ClearEntityModifier( ent, "adv_health_tool" )
 
 	local multi = self:GetOwner():KeyDown( IN_SPEED )
 	local getter = multi and constraint.GetAllConstrainedEntities
 	local targets = getter and getter( ent ) or { [ ent ] = ent }
-	local do_undo = #targets <= 1
+	local do_undo = table.Count( targets ) <= 1
 
 	local data = {
 		unbreakable = false,
@@ -239,7 +158,24 @@ function TOOL:Reload( trace )
 end
 
 
-if CLIENT then
+if SERVER then
+
+	function TOOL:Think()
+
+		if not self:GetClientBool( "tooltip_enabled" ) then return end
+
+		local ent = self:GetOwner():GetEyeTrace().Entity
+		if not IsValid( ent ) then return end
+		if not AHT_CopySettings then return end
+
+		for k, v in pairs( AHT_CopySettings( ent ) ) do
+			local funcKey = isbool( v ) and "SetNW2Bool" or "SetNW2Int"
+			ent[ funcKey ]( ent, "aht_" .. k, v )
+		end
+
+	end
+
+else
 
 	local color_gold = Color( 240, 150, 40 )
 
@@ -263,7 +199,7 @@ if CLIENT then
 		local max_health = ent:GetNW2Int( "aht_max_health" )
 		local unbreakable	 = ent:GetNW2Bool( "aht_unbreakable" )
 		local immune_mask	 = ent:GetNW2Int( "aht_immune_mask" ) or 0
-		local prop = health/max_health or 1
+		local prop = health / max_health or 1
 
 		local text1 = ( "Health: %s / %s" ):format( health or "N / A", max_health or "N / A" )
 		local text2 = max_health == 0 and "" or ( " (%s%%)" ):format( math.Round( prop * 100, 2 ) )
@@ -280,9 +216,10 @@ if CLIENT then
 		local font = "GModWorldtip"
 		surface.SetFont( font )
 		local tw1, th1 = surface.GetTextSize( text1 )
-		local tw2 = surface.GetTextSize( text2 )
+		local tw2, th2 = surface.GetTextSize( text2 )
 		local tw3, th3 = surface.GetTextSize( text3 )
 		if tw3 == 0 then th3 = 0 end
+		th1 = math.max( th1, th2 )
 		local tw, th = math.max( tw1 + tw2, tw3 ), th1 + th3
 
 		y = y - th
@@ -305,15 +242,12 @@ function TOOL.BuildCPanel( cPanel )
 	local col1	= HexToColor( "#329a55" )
 	local col2	= HexToColor( "#3B5670" )
 	local col3	= HexToColor( "#4A90E2" )
-	local color_red		= Color( 220, 40, 20 )
-	local color_orange	= Color( 220, 120, 20 )
-	local color_green	= Color( 35, 155, 100 )
 
 	local function paint( panel, w, h, hcol, bgcol )
-		local topHeight = panel:GetHeaderHeight()
+		local hh = panel:GetHeaderHeight()
 		local c = not panel:GetExpanded()
-		draw.RoundedBoxEx( 4, 0, 0, w, topHeight, hcol, true, true, c, c )
-		draw.RoundedBoxEx( 8, 0, topHeight, w, h - topHeight + 5, bgcol, false, false, true, true )
+		draw.RoundedBoxEx( 4, 0, 0, w, hh, hcol, true, true, c, c )
+		draw.RoundedBoxEx( 8, 0, hh, w, h - hh + 5, bgcol, false, false, true, true )
 	end
 
 	local function customDForm( label, expanded, hcol, bgcol )
@@ -346,11 +280,11 @@ function TOOL.BuildCPanel( cPanel )
 
 		--healthForm:ControlHelp( ( "You can set these higher than %s if you want." ):format( maxHealthSlider:GetMax() ) )
 
-		
+
 		local FR_button = vgui.Create( "DButton" )
 			FR_button:Dock( TOP )
 			FR_button:SetText( "Make fragile" )
-			FR_button:SetImage( "icon32/hand_property.png" )
+			FR_button:SetImage( "icon16/cup_error.png" )
 			function FR_button:DoClick()
 				maxHealthSlider.Scratch:SetValue( lowHealth )
 				healthSlider.Scratch:SetValue( lowHealth )
@@ -360,7 +294,7 @@ function TOOL.BuildCPanel( cPanel )
 		local NU_button = vgui.Create( "DButton" )
 			NU_button:Dock( TOP )
 			NU_button:SetText( "Make near-unbreakable" )
-			NU_button:SetImage( "icon32/tool.png" )
+			NU_button:SetImage( "icon16/heart_add.png" )
 			function NU_button:DoClick()
 				maxHealthSlider.Scratch:SetValue( limitHealth )
 				healthSlider.Scratch:SetValue( limitHealth )
@@ -369,7 +303,7 @@ function TOOL.BuildCPanel( cPanel )
 			NU_button:SetTooltip( ( "Set Base Health and Max Health to %s." ):format( limitHealth ) )
 
 		healthForm:AddItem( FR_button, NU_button )
-		
+
 
 		local STMH_checkBox = healthForm:CheckBox( "Heal entity", mode .. "_use_max" )
 			STMH_checkBox:SetTooltip( "Set Base Health to the same value as Max Health" )
