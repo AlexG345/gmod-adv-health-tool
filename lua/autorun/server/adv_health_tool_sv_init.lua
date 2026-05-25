@@ -1,5 +1,5 @@
-CreateConVar( "sv_adv_health_tool_nodmgforce", 1, bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED ), "Nullified damage will also lose its force.", 0, 1 )
-
+CreateConVar( "sv_adv_health_tool_nodmgforce", 1, bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED ), "(Advanced Health Tool): If true, any damage nullified by a filter won't apply force on the victim.", 0, 1 )
+CreateConVar( "sv_adv_health_tool_enableundo", 0, FCVAR_ARCHIVE, "(Advanced Health Tool): If false, undo entries won't be created by the addon.", 0, 1 )
 
 util.AddNetworkString( "adv_health_tool_net" )
 
@@ -67,7 +67,9 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 	--if SERVER then
 	data.getLegacy = true -- for (one-way) compability with the other addon
 	duplicator.StoreEntityModifier( ent, "adv_health_tool", data )
-	if do_undo then
+
+	enableundo	= GetConVar( "sv_adv_health_tool_enableundo" )
+	if do_undo and enableundo and enableundo:GetBool() then
 		undo_text = undo_text or "Set health settings"
 		undo.Create( undo_text .. " ( " .. ( ent:GetModel() or "?" ) .. " )" )
 			undo.AddFunction( function()
@@ -81,8 +83,8 @@ function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 
 end
 
-
 duplicator.RegisterEntityModifier( "adv_health_tool", AHT_ApplySettings )
+
 
 function AHT_CopySettings( ent )
 	return {
