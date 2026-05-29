@@ -26,43 +26,54 @@ if CLIENT then
 	language.Add( t .. "right",		"Copy settings" )
 	language.Add( t .. "reload",		"Reset settings" )
 
-	local k1, k2 = "name", "flag"
-	dmgEnums = {
-		--{ [k1] = "DMG_GENERIC", [k2] = DMG_GENERIC }, -- useless (value is 0)
-		{ [k1] = "DMG_CRUSH", [k2] = DMG_CRUSH },
-		{ [k1] = "DMG_BULLET", [k2] = DMG_BULLET },
-		{ [k1] = "DMG_SLASH", [k2] = DMG_SLASH },
-		{ [k1] = "DMG_BURN", [k2] = DMG_BURN },
-		{ [k1] = "DMG_VEHICLE", [k2] = DMG_VEHICLE },
-		{ [k1] = "DMG_FALL", [k2] = DMG_FALL },
-		{ [k1] = "DMG_BLAST", [k2] = DMG_BLAST },
-		{ [k1] = "DMG_CLUB", [k2] = DMG_CLUB },
-		{ [k1] = "DMG_SHOCK", [k2] = DMG_SHOCK },
-		{ [k1] = "DMG_SONIC", [k2] = DMG_SONIC },
-		{ [k1] = "DMG_ENERGYBEAM", [k2] = DMG_ENERGYBEAM },
-		{ [k1] = "DMG_PREVENT_PHYSICS_FORCE", [k2] = DMG_PREVENT_PHYSICS_FORCE },
-		{ [k1] = "DMG_NEVERGIB", [k2] = DMG_NEVERGIB },
-		{ [k1] = "DMG_ALWAYSGIB", [k2] = DMG_ALWAYSGIB },
-		{ [k1] = "DMG_DROWN", [k2] = DMG_DROWN },
-		{ [k1] = "DMG_PARALYZE", [k2] = DMG_PARALYZE },
-		{ [k1] = "DMG_NERVEGAS", [k2] = DMG_NERVEGAS },
-		{ [k1] = "DMG_POISON", [k2] = DMG_POISON },
-		{ [k1] = "DMG_RADIATION", [k2] = DMG_RADIATION },
-		{ [k1] = "DMG_DROWNRECOVER", [k2] = DMG_DROWNRECOVER },
-		{ [k1] = "DMG_ACID", [k2] = DMG_ACID },
-		{ [k1] = "DMG_SLOWBURN", [k2] = DMG_SLOWBURN },
-		{ [k1] = "DMG_REMOVENORAGDOLL", [k2] = DMG_REMOVENORAGDOLL },
-		{ [k1] = "DMG_PHYSGUN", [k2] = DMG_PHYSGUN },
-		{ [k1] = "DMG_PLASMA", [k2] = DMG_PLASMA },
-		{ [k1] = "DMG_AIRBOAT", [k2] = DMG_AIRBOAT },
-		{ [k1] = "DMG_DISSOLVE", [k2] = DMG_DISSOLVE },
-		{ [k1] = "DMG_BLAST_SURFACE", [k2] = DMG_BLAST_SURFACE },
-		{ [k1] = "DMG_DIRECT", [k2] = DMG_DIRECT },
-		{ [k1] = "DMG_BUCKSHOT", [k2] = DMG_BUCKSHOT },
-		{ [k1] = "DMG_SNIPER", [k2] = DMG_SNIPER },
-		{ [k1] = "DMG_MISSILEDEFENSE", [k2] = DMG_MISSILEDEFENSE },
+	dmgEnums	= {}
+	local infoNames	= { "name", "flag", "icon", "iconColorOverride" }
+	local tempDmgEnums = {
+		--{ "DMG_GENERIC", DMG_GENERIC }, -- useless (value is 0)
+		{ "DMG_CRUSH",					DMG_CRUSH,					"icon16/anchor.png" },
+		{ "DMG_BULLET",					DMG_BULLET,					"icon16/gun.png" },
+		{ "DMG_SLASH",					DMG_SLASH,					"icon16/cut_red.png" },
+		{ "DMG_BURN",					DMG_BURN,					"icon16/fire.png" },
+		{ "DMG_VEHICLE",				DMG_VEHICLE,				"icon16/car.png" },
+		{ "DMG_FALL",					DMG_FALL,					"icon16/arrow_down.png" },
+		{ "DMG_BLAST",					DMG_BLAST,					"icon16/bomb.png" },
+		{ "DMG_CLUB",					DMG_CLUB,					"icon16/bullet_wrench.png" },
+		{ "DMG_SHOCK",					DMG_SHOCK,					"icon16/lightning.png" },
+		{ "DMG_SONIC",					DMG_SONIC,					"icon16/sound.png" },
+		{ "DMG_ENERGYBEAM",				DMG_ENERGYBEAM,				"icon16/wand.png" },
+		{ "DMG_PREVENT_PHYSICS_FORCE",	DMG_PREVENT_PHYSICS_FORCE,	"icon16/brick_link.png" },
+		{ "DMG_NEVERGIB",				DMG_NEVERGIB,				},
+		{ "DMG_ALWAYSGIB",				DMG_ALWAYSGIB,				},
+		{ "DMG_DROWN",					DMG_DROWN,					"icon16/drink.png" },
+		{ "DMG_PARALYZE",				DMG_PARALYZE,				"icon16/bug.png", color_black },
+		{ "DMG_NERVEGAS",				DMG_NERVEGAS,				"icon16/weather_clouds.png", Color(255, 200, 0) },
+		{ "DMG_POISON",					DMG_POISON,					"icon16/bug.png", color_black },
+		{ "DMG_RADIATION",				DMG_RADIATION,				"icon16/feed_error.png" },
+		{ "DMG_DROWNRECOVER",			DMG_DROWNRECOVER,			"icon16/heart_add.png" },
+		{ "DMG_ACID",					DMG_ACID,					"icon16/weather_rain.png", Color(0, 255, 0) },
+		{ "DMG_SLOWBURN",				DMG_SLOWBURN,				"icon16/fire.png" },
+		{ "DMG_REMOVENORAGDOLL",		DMG_REMOVENORAGDOLL,		},
+		{ "DMG_PHYSGUN",				DMG_PHYSGUN,				"icon16/brick_go.png" },
+		{ "DMG_PLASMA",					DMG_PLASMA,					"icon16/scratchnumber.png" },
+		{ "DMG_AIRBOAT",				DMG_AIRBOAT,				"icon16/gun.png" },
+		{ "DMG_DISSOLVE",				DMG_DISSOLVE,				"icon16/status_online.png", color_black },
+		{ "DMG_BLAST_SURFACE",			DMG_BLAST_SURFACE,			"icon16/bomb.png" },
+		{ "DMG_DIRECT",					DMG_DIRECT,					"icon16/arrow_right.png" },
+		{ "DMG_BUCKSHOT",				DMG_BUCKSHOT,				"icon16/gun.png" },
+		{ "DMG_SNIPER",					DMG_SNIPER,					"icon16/find.png" },
+		{ "DMG_MISSILEDEFENSE",			DMG_MISSILEDEFENSE,			"icon16/bomb.png" },
 	}
-	k1, k2 = nil, nil
+
+	dmgEnums = {}
+	for i, tempDmgEnum in ipairs(tempDmgEnums) do
+		dmgEnum		= {}
+		dmgEnums[i]	= dmgEnum
+		for j, info in ipairs(tempDmgEnum) do
+			dmgEnum[infoNames[j]] = info
+		end
+	end
+
+	infoNames, tempDmgEnums = nil, nil
 
 	net.Receive( "adv_health_tool_net", function( len, ply )
 
@@ -85,12 +96,18 @@ function TOOL:LeftClick( trace )
 
 	local ply = self:GetOwner()
 
+	print("a: ", self:GetClientInfo( "max_health" ) )
+
+	local function getNumber( name )
+		return ( self:GetClientInfo( name ) ~= "" and self:GetClientNumber( name ) ) or nil
+	end
+
 	local data = {
-		max_health	= self:GetClientNumber( "max_health" ),
-		immune_mask	= self:GetClientNumber( "immune_mask" ),
+		max_health	= getNumber( "max_health"),
+		immune_mask	= getNumber( "immune_mask"),
 		unbreakable = self:GetClientBool( "unbreakable" ),
 	}
-	data.health = self:GetClientBool( "use_max" ) and data.max_health or self:GetClientNumber( "health" )
+	data.health = ( self:GetClientBool( "use_max" ) and data.max_health ) or getNumber( "health")
 
 	local multi = ply:KeyDown( IN_SPEED )
 	local getter = multi and constraint.GetAllConstrainedEntities
@@ -135,8 +152,6 @@ function TOOL:Reload( trace )
 
 	if CLIENT then return true end
 
-	duplicator.ClearEntityModifier( ent, "adv_health_tool" )
-
 	local multi = self:GetOwner():KeyDown( IN_SPEED )
 	local getter = multi and constraint.GetAllConstrainedEntities
 	local targets = getter and getter( ent ) or { [ ent ] = ent }
@@ -148,9 +163,10 @@ function TOOL:Reload( trace )
 	}
 
 	for target in pairs( targets ) do
-		data.health = target.aht_orig_health
-		data.max_health = target.aht_orig_max_health
+		data.health		= target.aht_orig_health
+		data.max_health	= target.aht_orig_max_health
 		AHT_ApplySettings( self:GetOwner(), target, data, do_undo, "Reset health settings" )
+		duplicator.ClearEntityModifier( target, "adv_health_tool" )
 	end
 
 	return true
@@ -281,39 +297,59 @@ function TOOL.BuildCPanel( cPanel )
 		--healthForm:ControlHelp( ( "You can set these higher than %s if you want." ):format( maxHealthSlider:GetMax() ) )
 
 
-		local FR_button = vgui.Create( "DButton" )
-			FR_button:Dock( TOP )
-			FR_button:SetText( "Make fragile" )
-			FR_button:SetImage( "icon16/cup_error.png" )
-			function FR_button:DoClick()
-				maxHealthSlider.Scratch:SetValue( lowHealth )
-				healthSlider.Scratch:SetValue( lowHealth )
-			end
-			FR_button:SetTooltip( ( "Set Base Health and Max Health to %s." ):format( lowHealth ) )
+		local buttonHeight				= 20
+		local buttonWidth				= 160
 
-		local NU_button = vgui.Create( "DButton" )
-			NU_button:Dock( TOP )
-			NU_button:SetText( "Make near-unbreakable" )
-			NU_button:SetImage( "icon16/heart_add.png" )
-			function NU_button:DoClick()
-				maxHealthSlider.Scratch:SetValue( limitHealth )
-				healthSlider.Scratch:SetValue( limitHealth )
-			end
-			NU_button:DockMargin( 15, 0, 0, 0 )
-			NU_button:SetTooltip( ( "Set Base Health and Max Health to %s." ):format( limitHealth ) )
+		local healthButtonsTileLayout	= vgui.Create( "DTileLayout" )
+		healthForm:AddItem( healthButtonsTileLayout )
+			healthButtonsTileLayout:SetBaseSize( buttonHeight )
+			healthButtonsTileLayout:SetSpaceX( 15 )
 
-		healthForm:AddItem( FR_button, NU_button )
+			local FR_button = vgui.Create( "DButton" )
+			healthButtonsTileLayout:Add( FR_button )
+				FR_button:SetSize( buttonWidth, buttonHeight )
+				FR_button:SetText( "Make fragile" )
+				FR_button:SetImage( "icon16/heart_delete.png" )
+				function FR_button:DoClick()
+					maxHealthSlider.Scratch:SetValue( lowHealth )
+					healthSlider.Scratch:SetValue( lowHealth )
+				end
+				FR_button:SetTooltip( ( "Set Base Health and Max Health to %s." ):format( lowHealth ) )
 
+			local NU_button = vgui.Create( "DButton" )
+			healthButtonsTileLayout:Add( NU_button )
+				NU_button:SetSize( buttonWidth, buttonHeight )
+				NU_button:SetText( "Make near-unbreakable" )
+				NU_button:SetImage( "icon16/heart_add.png" )
+				function NU_button:DoClick()
+					maxHealthSlider.Scratch:SetValue( limitHealth )
+					healthSlider.Scratch:SetValue( limitHealth )
+				end
+				NU_button:SetTooltip( ( "Set Base Health and Max Health to %s." ):format( limitHealth ) )
 
-		local STMH_checkBox = healthForm:CheckBox( "Heal entity", mode .. "_use_max" )
-			STMH_checkBox:SetTooltip( "Set Base Health to the same value as Max Health" )
-			function STMH_checkBox:OnChange( checked )
-				healthSlider:SetEnabled( not checked )
-				if checked then healthSlider.Scratch:SetValue( maxHealthSlider.Scratch:GetFloatValue() ) end
-			end
+		local healthCheckboxesTileLayout	= vgui.Create( "DTileLayout" )
+		healthForm:AddItem( healthCheckboxesTileLayout )
 
-		local ubCheckBox = healthForm:CheckBox( "Unbreakable", mode .. "_unbreakable" )
-			ubCheckBox:SetTooltip( "Make the entity immune to all damage." )
+			healthCheckboxesTileLayout:SetSpaceX( 15 )
+			local STMH_checkBox = vgui.Create( "DCheckBoxLabel" )
+			healthCheckboxesTileLayout:Add( STMH_checkBox )
+			healthCheckboxesTileLayout:SetBaseSize( STMH_checkBox:GetTall() )
+				STMH_checkBox:SetText( "Auto max health" )
+				STMH_checkBox:SetDark( true )
+				STMH_checkBox:SetConVar( mode .. "_use_max" )
+
+				STMH_checkBox:SetTooltip( "Set Base Health to the same value as Max Health" )
+				function STMH_checkBox:OnChange( checked )
+					healthSlider:SetEnabled( not checked )
+					if checked then healthSlider.Scratch:SetValue( maxHealthSlider.Scratch:GetFloatValue() ) end
+				end
+
+			local ubCheckBox = vgui.Create( "DCheckBoxLabel" )
+			healthCheckboxesTileLayout:Add( ubCheckBox )
+				ubCheckBox:SetText( "Unbreakable" )
+				ubCheckBox:SetDark( true )
+				ubCheckBox:SetConVar( mode .. "_unbreakable" )
+				ubCheckBox:SetTooltip( "Make the entity immune to all damage." )
 
 
 		function maxHealthSlider:OnValueChanged( value )
@@ -324,8 +360,8 @@ function TOOL.BuildCPanel( cPanel )
 
 	local filterForm = customDForm( "Damage filtering", false, col2, color_gray )
 
-		filterForm:Help( "Below you can choose and combine up to 32 types of damage for the entity to ignore." )
-		filterForm:ControlHelp( "You can get a better understanding of damage types by checking the wiki link in the 'Help' section at the bottom." )
+		filterForm:Help( "Below you can choose and combine up to 32 types of damage for the entity to ignore. This combination is called 'Damage Mask'." )
+		filterForm:ControlHelp( "\nYou can get a better understanding of damage types by checking the wiki link in the 'Help' section at the bottom." )
 
 
 		local cVarName = mode .. "_immune_mask"
@@ -336,52 +372,91 @@ function TOOL.BuildCPanel( cPanel )
 			filterComboBox:AddChoice( "None", 0 )
 			filterComboBox:AddChoice( "Fireproof", bit.bor( DMG_BURN, DMG_SLOWBURN ) )
 			filterComboBox:AddChoice( "Bulletproof", bit.bor( DMG_BULLET, DMG_BUCKSHOT, DMG_SNIPER, DMG_AIRBOAT ) )
-			filterComboBox:AddChoice( "Blast-Resistant", bit.bor( DMG_BLAST, DMG_BLAST_SURFACE ) )
+			filterComboBox:AddChoice( "Blast-Resistant", bit.bor( DMG_BLAST, DMG_BLAST_SURFACE, DMG_MISSILEDEFENSE ) )
 			filterComboBox:AddChoice( "Anti-Combine Ball", DMG_DISSOLVE )
 			filterComboBox:AddChoice( "Everything", -1 )
 
 
 		filterForm:TextEntry( "Damage Mask", cVarName )
 
-		local cVar = GetConVar( cVarName )
 		local checkboxes = {}
 		local syncing = false
 
 		-- Get current ConVar value (default to 0 if invalid)
-		local currentMask = tonumber( cVar:GetString() ) or 0
+		local currentMask = tonumber( GetConVar( cVarName ):GetString() ) or 0
+
+		local color_selected	= Color( 0, 255, 0, 100 )
+		local tileLayout				= vgui.Create( "DTileLayout", filterForm )
+		tileLayout:Dock( FILL )
+		filterForm:AddItem( tileLayout )
+
+		local h
 
 		for _, dmgType in ipairs( dmgEnums ) do
-			-- Create checkbox with damage type name
-			local checkbox = vgui.Create( "DCheckBoxLabel", filterForm )
-			checkbox:SetDark( true )
-			checkbox:SetText( dmgType.name )
-			checkbox:SetValue( bit.band( currentMask, dmgType.flag ) ~= 0 )
 
-			-- Update ConVar on change using bitwise operations
-			function checkbox:OnChange( checked )
+			local panel = vgui.Create( "DPanel", tileLayout )
+			tileLayout:Add( panel )
+			tileLayout:SetSpaceY( 2 )
+			panel:SetBackgroundColor( color_selected )
+			panel:SetWide( 200 )
+			-- filterForm:AddItem(panel)
 
-				if syncing then return end
+				-- Create checkbox with damage type name
+				local checkbox = vgui.Create( "DCheckBoxLabel", panel )
+				panel:Add( checkbox )
+				table.insert( checkboxes, { checkbox = checkbox, flag = dmgType.flag } )
+				checkbox.Label:SetCursor( "hand" )
 
-				local newMask = tonumber( cVar:GetString() ) or 0 -- do NOT use cVar:GetInt() as it returns a rounded value for large ints! (e.g 33 554 431 -> 33 554 432)
+				checkbox:SetDark( true )
+				local text = string.TrimLeft( dmgType.name, "DMG_" )
+				-- text = string.sub( text, 1, 1 ) .. string.lower( string.sub( text, 2 ) )
+				checkbox:SetText( text )
+				checkbox:SetValue( bit.band( currentMask, dmgType.flag ) ~= 0 )
+				panel:SetPaintBackground( checkbox:GetChecked() )
 
-				if checked then
-					newMask = bit.bor( newMask, dmgType.flag )
-				else
-					newMask = bit.band( newMask, bit.bnot( dmgType.flag ) )
+				-- Update ConVar on change using bitwise operations
+				function checkbox:OnChange( checked )
+
+					self:GetParent():SetPaintBackground( checked )
+					if syncing then return end
+
+					local newMask = tonumber( GetConVar( cVarName ):GetString() ) or 0 -- do NOT use cVar:GetInt() as it returns a rounded value for large ints! (e.g 33 554 431 -> 33 554 432)
+
+					if checked then
+						newMask = bit.bor( newMask, dmgType.flag )
+
+					else
+						newMask = bit.band( newMask, bit.bnot( dmgType.flag ) )
+					end
+
+					RunConsoleCommand( cVarName, newMask )
+
 				end
 
-				RunConsoleCommand( cVarName, newMask )
+				h = h or math.max( 16, checkbox:GetTall() )
+				panel:SetTall(h)
+				checkbox:SetPos( 5 + h, ( h - checkbox:GetTall() ) / 2 )
 
-			end
+				if dmgType.icon then
+					local icon = vgui.Create( "DImage", panel )	-- Add image to Frame
+					panel:Add(icon)
+					icon:SetKeepAspect(true)	-- Size it to 150x150
+					icon:SetSize( h, h )
+					icon:SetImage( dmgType.icon )
 
-			table.insert( checkboxes, { checkbox = checkbox, flag = dmgType.flag } )
-			filterForm:AddItem( checkbox )
+					if dmgType.iconColorOverride then
+						icon:SetImageColor( dmgType.iconColorOverride )
+					end
+				end
 		end
+
+		tileLayout:SetBaseSize( h )
 
 		-- Cvar callback --
 
 		cvars.AddChangeCallback( cVarName, function( name, oldValue, newValue )
 
+			print("callbaack called")
 			syncing = true
 
 			local mask = tonumber( newValue ) or 0
@@ -394,9 +469,11 @@ function TOOL.BuildCPanel( cPanel )
 
 		end, "aht_menu_mask_sync" )
 
-		function filterForm:OnRemove()
-			cvars.RemoveChangeCallback( cVarName, "aht_menu_mask_sync" )
-		end
+		-- If you use this, the callback gets removed after any menu reload
+		-- function filterForm:OnRemove()
+		-- 	print("REMOVED")
+		-- 	cvars.RemoveChangeCallback( cVarName, "aht_menu_mask_sync" )
+		-- end
 
 
 	local helpForm = customDForm( "Help", true, col3, color_gray )

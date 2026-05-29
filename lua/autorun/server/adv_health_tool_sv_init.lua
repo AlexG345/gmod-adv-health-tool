@@ -1,6 +1,7 @@
 CreateConVar( "sv_adv_health_tool_nodmgforce", 1, bit.bor( FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED ), "(Advanced Health Tool): If true, any damage nullified by a filter won't apply force on the victim.", 0, 1 )
 CreateConVar( "sv_adv_health_tool_enableundo", 0, FCVAR_ARCHIVE, "(Advanced Health Tool): If false, undo entries won't be created by the addon.", 0, 1 )
 
+
 util.AddNetworkString( "adv_health_tool_net" )
 
 
@@ -24,8 +25,8 @@ end )
 
 local function applyNRemember( ent, newval, setter, getter, orig_key )
 	if not ( newval and isfunction( setter ) ) then return false end
-	local o = ent[ orig_key ] or getter( ent )
-	ent[ orig_key ] = o ~= newval and o or nil
+	local o = ent[orig_key] or getter( ent )
+	ent[orig_key] = o ~= newval and o or nil
 	setter( ent, newval )
 	return true
 end
@@ -33,53 +34,94 @@ end
 
 function AHT_ApplySettings( ply, ent, data, do_undo, undo_text )
 
-	local k1, k2, k3 = "unbreakable", "immune_mask", "m_takedamage"
+	local ubKey, imKey, tdKey = "unbreakable", "immune_mask", "m_takedamage"
+
+	-------
+	-- Backwards compability with Unbreakable Tool (https://steamcommunity.com/sharedfiles/filedetails/?id=111158387)
+	-------
 
 	local legacyUnbreak = ent.EntityMods and ent.EntityMods.Unbreakable
 	if legacyUnbreak then
 		if data.getLegacy then
-			data[k1] = data[k1] or legacyUnbreak and legfacyUnbreak.On
+			data[ubKey] = data[ubKey] or legacyUnbreak.On
 		else
-			if legacyUnbreak then ent.EntityMods.Unbreakable.On = data[k1] end
+			legacyUnbreak.On = data[ubKey]
 		end
 		data.getLegacy = nil
 	end
 
+	-------
+	-- Preserve current entity data if an undo entry is required
+	-------
+
 	local oldData
-	if do_undo ~= false then -- if SERVER and do_undo ~= false
+	if do_undo ~= false then
 		oldData = AHT_CopySettings( ent )
+
+		-- Don't uselessly create an undo entry
 		do_undo = false
 		for k, v in pairs( data ) do
-			if v ~= oldData[k] then do_undo = true end
+			if v ~= oldData[k] then
+				do_undo = true
+				break
+			end
 		end
 	end
 
-	applyNRemember( ent, data.health, ent.SetHealth, ent.Health, "aht_orig_health" )
-	applyNRemember( ent, data.max_health, ent.SetMaxHealth, ent.GetMaxHealth, "aht_orig_max_health" )
-	ent["aht_" .. k1] = data[k1] or nil
-	ent["aht_" .. k2] = data[k2] ~= 0 and data[k2] or nil
-	ent.aht_damage_filtered = data[k1] or data[k2] ~= 0 or nil
-	-- m_takedamage info here: https://developer.valvesoftware.com/wiki/CBaseEntity
-	local nodmgforce = GetConVar( "sv_adv_health_tool_nodmgforce" )
-	local m_takedamage = data[k1] and ( nodmgforce and not nodmgforce:GetBool() and 1 or 0 ) or ent["aht_orig_" .. k3]
-	applyNRemember( ent, m_takedamage, function( e, v ) e:SetSaveValue( k3, v ) end, function( e ) return e:GetInternalVariable( k3 ) end, "aht_orig_" .. k3 )
+	-------
+	-- Save stuff that does NOT have a default value to reset to.
+	-- Those are things added by AHT
+	-------
 
-	--if SERVER then
+	local unbreakable		= data[ubKey] or nil
+	ent["aht_" .. ubKey]	= unbreakable
+
+	local immune_mask = data[imKey]
+	if immune_mask ~= nil then
+		ent["aht_" .. imKey] = immune_mask ~= 0 and immune_mask or nil
+	end
+	immune_mask	= ent["aht_" .. imKey]
+
+	local has_mask = ( immune_mask ~= 0 ) and ( immune_mask ~= nil )
+
+	ent.aht_damage_filtered = unbreakable or has_mask or nil
+
+	-------
+	-- Save stuff that has a default value to reset to.
+	-- Those are things already present in gmod (but normally unchangeable without lua)
+	-------
+
+	-- m_takedamage info can be found here: https://developer.valvesoftware.com/wiki/CBaseEntity
+	local nodmgforce	= GetConVar( "sv_adv_health_tool_nodmgforce" )
+	local m_takedamage	= unbreakable and ( nodmgforce and nodmgforce:GetBool() and 0 or 1 ) or ent["aht_orig_" .. tdKey]
+	applyNRemember( ent, m_takedamage, function( e, v ) e:SetSaveValue( tdKey, v ) end, function( e ) return e:GetInternalVariable( tdKey ) end, "aht_orig_" .. tdKey )
+	applyNRemember( ent, data.health,		ent.SetHealth,		ent.Health,			"aht_orig_health" )
+	applyNRemember( ent, data.max_health,	ent.SetMaxHealth,	ent.GetMaxHealth,	"aht_orig_max_health" )
+
+	-------
+	-- Update duplicator
+	-------
+
 	data.getLegacy = true -- for (one-way) compability with the other addon
 	duplicator.StoreEntityModifier( ent, "adv_health_tool", data )
 
+	-------
+	-- Add undo entry
+	-------
+
+	if not ( ply and do_undo ) then return end
+
 	enableundo	= GetConVar( "sv_adv_health_tool_enableundo" )
-	if do_undo and enableundo and enableundo:GetBool() then
-		undo_text = undo_text or "Set health settings"
-		undo.Create( undo_text .. " ( " .. ( ent:GetModel() or "?" ) .. " )" )
-			undo.AddFunction( function()
-				if not IsValid( ent ) then return false end
-				AHT_ApplySettings( ply, ent, oldData, false )
-			end )
-			undo.SetPlayer( ply )
-		undo.Finish()
-	end
-	--end
+	if not ( enableundo and enableundo:GetBool() ) then return end
+
+	undo.Create( ( undo_text or "Set health settings" ) .. " ( " .. ( ent:GetModel() or "?" ) .. " )" )
+		undo.AddFunction( function()
+			if not IsValid( ent ) then return false end
+			AHT_ApplySettings( ply, ent, oldData, false )
+		end )
+		undo.SetPlayer( ply )
+	undo.Finish()
+
 
 end
 
