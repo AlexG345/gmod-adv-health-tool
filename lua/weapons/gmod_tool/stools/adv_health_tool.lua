@@ -24,7 +24,7 @@ if CLIENT then
 	language.Add( t .. "0",			"Press " .. (input.LookupBinding( "+speed" ) or "sprint key" ) .. " to target all constrained entities (can't undo!)" )
 	language.Add( t .. "left",		"Apply settings" )
 	language.Add( t .. "right",		"Copy settings" )
-	language.Add( t .. "reload",		"Reset settings" )
+	language.Add( t .. "reload",	"Reset settings" )
 
 	dmgEnums	= {}
 	local infoNames	= { "name", "flag", "icon", "iconColorOverride" }
@@ -152,10 +152,10 @@ function TOOL:Reload( trace )
 
 	if CLIENT then return true end
 
-	local multi = self:GetOwner():KeyDown( IN_SPEED )
-	local getter = multi and constraint.GetAllConstrainedEntities
-	local targets = getter and getter( ent ) or { [ ent ] = ent }
-	local do_undo = table.Count( targets ) <= 1
+	local multi		= self:GetOwner():KeyDown( IN_SPEED )
+	local getter	= multi and constraint.GetAllConstrainedEntities
+	local targets	= getter and getter( ent ) or { [ ent ] = ent }
+	local do_undo	= table.Count( targets ) <= 1
 
 	local data = {
 		unbreakable = false,
@@ -399,7 +399,6 @@ function TOOL.BuildCPanel( cPanel )
 			tileLayout:SetSpaceY( 2 )
 			panel:SetBackgroundColor( color_selected )
 			panel:SetWide( 200 )
-			-- filterForm:AddItem(panel)
 
 				-- Create checkbox with damage type name
 				local checkbox = vgui.Create( "DCheckBoxLabel", panel )
